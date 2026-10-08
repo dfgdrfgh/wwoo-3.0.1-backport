@@ -1,0 +1,402 @@
+{
+  "artifact": "wwoo-fabric-1.21.1-3.0.1-backport.jar",
+  "sha256": "6be92f221763b097ac9b692e073e5ffbd0c28dd1b4123b71368407aeb3bc2774",
+  "biome_count": 56,
+  "older_complete_fill_ins": [
+    "ice_spikes",
+    "mangrove_swamp",
+    "mushroom_fields",
+    "swamp",
+    "windswept_gravelly_hills",
+    "windswept_hills",
+    "windswept_savanna"
+  ],
+  "modern_template_count": 265,
+  "behavior_checks": [
+    "RULE_SKIP",
+    "SEQUENCE_SKIP",
+    "OVERLAY",
+    "NESTED_RULE",
+    "CROPS",
+    "COCOA",
+    "CACTUS",
+    "SUGAR_CANE",
+    "MOSS",
+    "TEMPLATE",
+    "LEAF_SUPPORT",
+    "WOLF_VARIANT"
+  ],
+  "changed_original_classes": [
+    "de/cristelknight/wwoo/config/WWOOConfig$1.class",
+    "de/cristelknight/wwoo/config/WWOOConfig.class"
+  ],
+  "panda_spawns_match_supplied_301": {
+    "dappled_forest": [
+      {
+        "type": "minecraft:panda",
+        "weight": 10,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "jungle": [
+      {
+        "type": "minecraft:panda",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ]
+  },
+  "noise_reference_test": {
+    "samples": 20000,
+    "bitwise_differences": 0
+  },
+  "saved_full_chunks": {
+    "badlands": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:badlands": 24
+      }
+    },
+    "bamboo_jungle": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:bamboo_jungle": 24
+      }
+    },
+    "beach": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:beach": 24
+      }
+    },
+    "birch_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:birch_forest": 24
+      }
+    },
+    "cherry_grove": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:cherry_grove": 24
+      }
+    },
+    "cold_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:cold_ocean": 24
+      }
+    },
+    "dappled_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:dappled_forest": 24
+      }
+    },
+    "dark_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:dark_forest": 24
+      }
+    },
+    "deep_cold_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:deep_cold_ocean": 24
+      }
+    },
+    "deep_dark": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:deep_dark": 24
+      }
+    },
+    "deep_frozen_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:deep_frozen_ocean": 24
+      }
+    },
+    "deep_lukewarm_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:deep_lukewarm_ocean": 24
+      }
+    },
+    "deep_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:deep_ocean": 24
+      }
+    },
+    "desert": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:desert": 24
+      }
+    },
+    "dripstone_caves": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:dripstone_caves": 24
+      }
+    },
+    "eroded_badlands": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:eroded_badlands": 24
+      }
+    },
+    "flower_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:flower_forest": 24
+      }
+    },
+    "forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:forest": 24
+      }
+    },
+    "frozen_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:frozen_ocean": 24
+      }
+    },
+    "frozen_peaks": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:frozen_peaks": 24
+      }
+    },
+    "frozen_river": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:frozen_river": 24
+      }
+    },
+    "grove": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:grove": 24
+      }
+    },
+    "ice_spikes": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:ice_spikes": 24
+      }
+    },
+    "jagged_peaks": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:jagged_peaks": 24
+      }
+    },
+    "jungle": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:jungle": 24
+      }
+    },
+    "lukewarm_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:lukewarm_ocean": 24
+      }
+    },
+    "lush_caves": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:lush_caves": 24
+      }
+    },
+    "mangrove_swamp": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:mangrove_swamp": 24
+      }
+    },
+    "meadow": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:meadow": 24
+      }
+    },
+    "mushroom_fields": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:mushroom_fields": 24
+      }
+    },
+    "ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:ocean": 24
+      }
+    },
+    "old_growth_birch_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:old_growth_birch_forest": 24
+      }
+    },
+    "old_growth_pine_taiga": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:old_growth_pine_taiga": 24
+      }
+    },
+    "old_growth_spruce_taiga": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:old_growth_spruce_taiga": 24
+      }
+    },
+    "pale_garden": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:pale_garden": 24
+      }
+    },
+    "plains": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:plains": 24
+      }
+    },
+    "river": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:river": 24
+      }
+    },
+    "savanna": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:savanna": 24
+      }
+    },
+    "savanna_plateau": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:savanna_plateau": 24
+      }
+    },
+    "snowy_beach": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:snowy_beach": 24
+      }
+    },
+    "snowy_plains": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:snowy_plains": 24
+      }
+    },
+    "snowy_slopes": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:snowy_slopes": 24
+      }
+    },
+    "snowy_taiga": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:snowy_taiga": 24
+      }
+    },
+    "sparse_jungle": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:sparse_jungle": 24
+      }
+    },
+    "stony_peaks": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:stony_peaks": 24
+      }
+    },
+    "stony_shore": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:stony_shore": 24
+      }
+    },
+    "sulfur_caves": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:sulfur_caves": 24
+      }
+    },
+    "sunflower_plains": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:sunflower_plains": 24
+      }
+    },
+    "swamp": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:swamp": 24
+      }
+    },
+    "taiga": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:taiga": 24
+      }
+    },
+    "warm_ocean": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:warm_ocean": 24
+      }
+    },
+    "windswept_forest": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:windswept_forest": 24
+      }
+    },
+    "windswept_gravelly_hills": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:windswept_gravelly_hills": 24
+      }
+    },
+    "windswept_hills": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:windswept_hills": 24
+      }
+    },
+    "windswept_savanna": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:windswept_savanna": 24
+      }
+    },
+    "wooded_badlands": {
+      "status": "minecraft:full",
+      "biomes_in_sections": {
+        "minecraft:wooded_badlands": 24
+      }
+    }
+  },
+  "tested_dependencies": {
+    "minecraft": "1.21.1",
+    "java": "21.0.6",
+    "fabric_loader": "0.18.5",
+    "fabric_api": "0.116.17+1.21.1",
+    "cristel_lib": "3.1.7",
+    "true_vanilla_backport": "1.2.0.2638.9"
+  },
+  "remaining_validation": "Client rendering and a side-by-side visual comparison with 26.3 have not been performed."
+}
