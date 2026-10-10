@@ -17,6 +17,10 @@ jdk=java_bin()
 artifacts=[('net/fabricmc/mapping-io/0.8.0/mapping-io-0.8.0.jar','mapping-io.jar'),('net/fabricmc/tiny-remapper/0.14.0/tiny-remapper-0.14.0.jar','tiny-remapper.jar'),('net/fabricmc/fabric-loader/0.18.5/fabric-loader-0.18.5.jar','fabric-loader.jar')]
 artifacts.extend(('org/ow2/asm/'+a+'/9.9/'+a+'-9.9.jar',a+'.jar') for a in ['asm','asm-analysis','asm-commons','asm-tree','asm-util'])
 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:list(pool.map(lambda a:download('https://maven.fabricmc.net/'+a[0],LIB/a[1]),artifacts))
+# Use the MixinExtras already supplied at runtime by Fabric Loader for @Local.
+with zipfile.ZipFile(LIB/'fabric-loader.jar') as loader:
+    bundled=next(n for n in loader.namelist() if n.startswith('META-INF/jars/mixinextras-') and n.endswith('.jar'))
+    (LIB/'mixinextras.jar').write_bytes(loader.read(bundled))
 cp=os.pathsep.join(str(p.resolve()) for p in LIB.glob('*.jar'));(ROOT/'mapping-classpath.txt').write_text(cp)
 subprocess.run([str(jdk/'javac'),'--release','21','-cp',cp,str(ROOT/'MappingTool.java')],check=True,cwd=ROOT)
 manifest=json.load(urllib.request.urlopen('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'))

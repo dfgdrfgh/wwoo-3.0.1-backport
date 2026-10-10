@@ -19,7 +19,7 @@ public record WWOOConfig(boolean removeOres) {
         public String getHeader() { return "WWOO Config\n"; }
         public HashMap<String,String> getComments() {
             var comments=new HashMap<String,String>();
-            comments.put("removeOres","Removes underground andesite, diorite, granite and gravel. These remain in dedicated sub-biomes.");
+            comments.put("removeOres","Removes underground andesite, diorite, granite, gravel, and dirt patches. Requires a game restart.");
             return comments;
         }
     };
