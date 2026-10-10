@@ -60,4 +60,3 @@ compilecp=os.pathsep.join([str(ROOT/'minecraft-named.jar'),cp,*[str(p.resolve())
 (ROOT/'compile-classpath.txt').write_text(compilecp)
 (runtime/'launch-classpath.txt').write_text(os.pathsep.join([*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')],cp]))
 print('Ready. Run python3 port/build.py from the project directory.')
-

@@ -28,4 +28,3 @@ public record WWOOConfig(boolean removeOres) {
         com.zachminecraft.wwoocontent.BiomeSizeConfig.register();
     }
 }
-

@@ -24,4 +24,3 @@ public abstract class WWOOConfigScreenMixin {
         return name;
     }
 }
-

@@ -329,4 +329,3 @@ with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
     for n,data in entries.items():z.writestr(n,data)
 unchanged=[n for n in old.namelist() if not n.endswith('/') and old.read(n)==entries.get(n)]
 print(json.dumps({'output':str(out),'imported_json':len(selected),'templates':len(templates),'unchanged_base_files':len(unchanged),'changed_base_files':[n for n in old.namelist() if not n.endswith('/') and old.read(n)!=entries.get(n)]},indent=2))
-
