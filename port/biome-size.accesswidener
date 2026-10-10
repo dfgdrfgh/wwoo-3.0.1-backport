@@ -1,0 +1,5 @@
+accessWidener v2 named
+accessible class net/minecraft/world/level/levelgen/DensityFunctions$Noise
+accessible method net/minecraft/world/level/levelgen/DensityFunctions$Noise <init> (Lnet/minecraft/world/level/levelgen/DensityFunction$NoiseHolder;DD)V
+accessible class net/minecraft/world/level/levelgen/DensityFunctions$ShiftedNoise
+accessible method net/minecraft/world/level/levelgen/DensityFunctions$ShiftedNoise <init> (Lnet/minecraft/world/level/levelgen/DensityFunction;Lnet/minecraft/world/level/levelgen/DensityFunction;Lnet/minecraft/world/level/levelgen/DensityFunction;DDLnet/minecraft/world/level/levelgen/DensityFunction$NoiseHolder;)V

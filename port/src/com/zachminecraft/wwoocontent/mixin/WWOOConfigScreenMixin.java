@@ -18,6 +18,10 @@ public abstract class WWOOConfigScreenMixin {
         if (config.getName().equals("de.cristelknight.wwoo.config.WWOOConfig") && name.equals("removeOres")) {
             return "Remove Underground Patches";
         }
+        if (config.getName().equals("com.zachminecraft.wwoocontent.BiomeSizeConfig") && name.equals("sizeMultiplier")) {
+            return "Biome Size Multiplier";
+        }
         return name;
     }
 }
+

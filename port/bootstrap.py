@@ -14,7 +14,7 @@ def java_bin():
     if not p:raise SystemExit('Install JDK 21 or set WWOO_JAVA_HOME to its directory.')
     return Path(p).resolve().parent
 jdk=java_bin()
-artifacts=[('net/fabricmc/mapping-io/0.8.0/mapping-io-0.8.0.jar','mapping-io.jar'),('net/fabricmc/tiny-remapper/0.14.0/tiny-remapper-0.14.0.jar','tiny-remapper.jar'),('net/fabricmc/fabric-loader/0.18.5/fabric-loader-0.18.5.jar','fabric-loader.jar')]
+artifacts=[('net/fabricmc/access-widener/2.1.0/access-widener-2.1.0.jar','access-widener.jar'),('net/fabricmc/mapping-io/0.8.0/mapping-io-0.8.0.jar','mapping-io.jar'),('net/fabricmc/tiny-remapper/0.14.0/tiny-remapper-0.14.0.jar','tiny-remapper.jar'),('net/fabricmc/fabric-loader/0.18.5/fabric-loader-0.18.5.jar','fabric-loader.jar')]
 artifacts.extend(('org/ow2/asm/'+a+'/9.9/'+a+'-9.9.jar',a+'.jar') for a in ['asm','asm-analysis','asm-commons','asm-tree','asm-util'])
 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:list(pool.map(lambda a:download('https://maven.fabricmc.net/'+a[0],LIB/a[1]),artifacts))
 # Use the MixinExtras already supplied at runtime by Fabric Loader for @Local.
@@ -60,3 +60,4 @@ compilecp=os.pathsep.join([str(ROOT/'minecraft-named.jar'),cp,*[str(p.resolve())
 (ROOT/'compile-classpath.txt').write_text(compilecp)
 (runtime/'launch-classpath.txt').write_text(os.pathsep.join([*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')],cp]))
 print('Ready. Run python3 port/build.py from the project directory.')
+

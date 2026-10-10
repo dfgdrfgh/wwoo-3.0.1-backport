@@ -44,6 +44,9 @@ jobs:
           python3 tests/ice_preservation.py
           sha256sum wwoo-fabric-1.21.1-3.0.1-backport.jar
 
+      - name: Compile biome-size integration probe
+        run: python3 tests/build_biome_size_probe.py
+
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4
         with:
@@ -51,3 +54,4 @@ jobs:
           path: wwoo-fabric-1.21.1-3.0.1-backport.jar
           if-no-files-found: error
           retention-days: 30
+

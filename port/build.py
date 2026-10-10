@@ -291,13 +291,21 @@ for namespace,path in sorted([('wythers',p) for p in templates]+[('minecraft',p)
 import resources
 resources.apply_resources(entries,old,new,vanilla_new,put,visual_attributes,convert)
 meta=json.loads(old.read('fabric.mod.json'));meta['version']='3.0.1-backport';meta['entrypoints']['main'].append('com.zachminecraft.wwoocontent.ContentPort');meta['depends']['minecraft']='~1.21.1';meta['depends']['java']='>=21';meta['depends']['vanillabackport']='>=1.2.0.2638.9'
+meta['accessWidener']='wwoo-biome-size.accesswidener'
 meta['mixins']=meta.get('mixins',[])+['wwoo-content.common.mixins.json',{'config':'wwoo-content.client.mixins.json','environment':'client'}]
 put('fabric.mod.json',meta)
-put('wwoo-content.common.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':['BonemealMixin','PlantSupportMixins$Vegetation','PlantSupportMixins$Crops','PlantSupportMixins$Cocoa','PlantSupportMixins$Cactus','PlantSupportMixins$SugarCane','PlantSupportMixins$LeafSupport'],'injectors':{'defaultRequire':1}})
+put('wwoo-content.common.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':['BiomeSizeMixin','BonemealMixin','PlantSupportMixins$Vegetation','PlantSupportMixins$Crops','PlantSupportMixins$Cocoa','PlantSupportMixins$Cactus','PlantSupportMixins$SugarCane','PlantSupportMixins$LeafSupport'],'injectors':{'defaultRequire':1}})
 put('wwoo-content.client.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','client':['CloudColorMixin','CloudRendererAccess','CloudRendererMixin','WWOOConfigScreenMixin'],'injectors':{'defaultRequire':1}})
 # Compile and remap only the added helpers; original mod classes remain byte-for-byte intact.
 jdk=Path(os.environ['WWOO_JAVA_HOME'])/'bin' if 'WWOO_JAVA_HOME' in os.environ else (ROOT/'toolchain/jdk/bin' if (ROOT/'toolchain/jdk/bin').exists() else Path(shutil.which('javac')).parent)
-cp=(ROOT/'compile-classpath.txt').read_text().replace(str(ROOT/'minecraft-named.jar'),str(ROOT/'minecraft-client-named.jar'))+os.pathsep+str(next((ROOT/'test-dependencies').glob('cristellib-*.jar')))+os.pathsep+str(next((ROOT/'test-runtime/libraries/net/fabricmc/sponge-mixin').rglob('*.jar')));classes=ROOT/'port/classes'
+mcp=(ROOT/'mapping-classpath.txt').read_text()+os.pathsep+str(ROOT)
+# Apply exactly the same access widener for compilation and at Fabric runtime.
+subprocess.run([str(jdk/'java'),'-cp',mcp,'MappingTool','widen',str(ROOT/'minecraft-client-named.jar'),str(ROOT/'minecraft-compile-widened.jar'),str(ROOT/'port/biome-size.accesswidener')],check=True,cwd=ROOT)
+aw=ROOT/'port/biome-size-official.accesswidener';runtime_aw=ROOT/'port/biome-size-intermediary.accesswidener'
+for a,b,m,src,dst in [(ROOT/'port/biome-size.accesswidener',aw,ROOT/'client-mojmap.tiny','named','official'),(aw,runtime_aw,ROOT/'intermediary.tiny','official','intermediary')]:
+    subprocess.run([str(jdk/'java'),'-cp',mcp,'MappingTool','remap-aw',str(a),str(b),str(m),src,dst],check=True,cwd=ROOT)
+entries['wwoo-biome-size.accesswidener']=runtime_aw.read_bytes()
+cp=(ROOT/'compile-classpath.txt').read_text().replace(str(ROOT/'minecraft-named.jar'),str(ROOT/'minecraft-compile-widened.jar'))+os.pathsep+str(next((ROOT/'test-dependencies').glob('cristellib-*.jar')))+os.pathsep+str(next((ROOT/'test-runtime/libraries/net/fabricmc/sponge-mixin').rglob('*.jar')));classes=ROOT/'port/classes'
 if classes.exists():shutil.rmtree(classes)
 subprocess.run([str(jdk/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),*[str(p) for p in (ROOT/'port/src').rglob('*.java')]],check=True,cwd=ROOT)
 raw=ROOT/'port/helpers-named.jar'
@@ -321,3 +329,4 @@ with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
     for n,data in entries.items():z.writestr(n,data)
 unchanged=[n for n in old.namelist() if not n.endswith('/') and old.read(n)==entries.get(n)]
 print(json.dumps({'output':str(out),'imported_json':len(selected),'templates':len(templates),'unchanged_base_files':len(unchanged),'changed_base_files':[n for n in old.namelist() if not n.endswith('/') and old.read(n)!=entries.get(n)]},indent=2))
+

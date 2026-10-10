@@ -10,6 +10,46 @@ Original broad validation: Fabric Loader 0.18.5, Fabric API 0.116.17+1.21.1, Cri
 
 Use a new test world to inspect the rewrite. Worldgen changes affect newly generated chunks.
 
+## Biome size
+
+Open WWOO's config screen (with Cloth Config/Mod Menu installed) and choose the
+**Biome Size** section, or edit `config/wwoo/biome_size.json5`:
+
+```json5
+{
+  "sizeMultiplier": 1.0
+}
+```
+
+The range is **0.25–8.0**. `1.0` retains current generation, `2.0` generally makes
+biome regions twice as wide, and `0.5` generally makes them half as wide. This
+scales their horizontal climate-noise frequencies; it does not prescribe a
+fixed width, minimum area or tree count. Pale Gardens and other biomes still
+vary naturally from small patches to larger regions. Narrow rivers, transition
+biomes and climate-dependent regions retain their underlying placement rules.
+
+The setting applies to Overworld generators using vanilla climate noises,
+including Default, Large Biomes and Amplified. Large Biomes keeps its existing
+scale before this additional multiplier. Climate noises shared with terrain
+are scaled together so mountains/coastlines remain consistent with biome
+selection. Height limits, decoration density, cave/aquifer/ore detail noises,
+Nether and End generation are preserved. Disabling WWOO's main pack disables
+this scaling. Generators supplied by other mods with their own biome-placement
+systems may not use these noises.
+
+After saving in the screen, close and reopen the world. After editing the file,
+restart the game/server. Existing chunks keep their terrain and biomes; changing
+the multiplier in an existing world can create seams at new chunk boundaries.
+The default has no generation changes. The original WWOO config file and its
+remove-underground-patches setting remain separate.
+
+`tests/biome_size.py` checks the missing-file default, both range limits, smaller
+and larger regions, preserved existing settings, unchanged noise registries,
+all three Overworld presets, Nether/End, finite terrain samples and disabled
+packs using the actual dedicated-server mixins. The test probe is never bundled
+in the released mod. Run it after `tests/build_biome_size_probe.py`, with the
+normal test dependencies installed.
+
 ## Content and compatibility
 
 - The complete supplied 3.0.1 biome definitions, worldgen features, block-state providers, weighted structure templates, loot tables, and biome/block/structure tags are converted to 1.21.1 formats. This includes the newer bedrock sealing and cliff generation.
@@ -66,3 +106,4 @@ python3 port/validate.py test-full-validation
 Re-running the optional cross-version noise test also requires Java 25 and the 26.3 runtime libraries. The recorded comparison is included.
 
 The tests create their own local, offline dedicated-server world. Upstream author metadata and the upstream WWOO license are retained in the replacement JAR and both supplied inputs.
+
