@@ -24,8 +24,7 @@ public final class BiomeScaling {
     private BiomeScaling() {}
 
     public static NoiseRouter configuredRouter(NoiseRouter router) {
-        if (!Blocks.STONE.defaultBlockState().is(TagKey.create(Registries.BLOCK,
-                ResourceLocation.fromNamespaceAndPath("wwoocontent", "plant_support_active")))) {
+        if (!isPackActive()) {
             return router;
         }
         return scaleRouter(router, ConfigRegistry.get(BiomeSizeConfig.class).sizeMultiplier());
@@ -36,6 +35,11 @@ public final class BiomeScaling {
             var id = key.location();
             return id.getNamespace().equals("minecraft") && CLIMATE.contains(id.getPath());
         }).orElse(false);
+    }
+
+    public static boolean isPackActive() {
+        return Blocks.STONE.defaultBlockState().is(TagKey.create(Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath("wwoocontent", "plant_support_active")));
     }
 
     public static NoiseRouter scaleRouter(NoiseRouter router, double multiplier) {

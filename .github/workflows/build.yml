@@ -47,6 +47,9 @@ jobs:
       - name: Compile biome-size integration probe
         run: python3 tests/build_biome_size_probe.py
 
+      - name: Validate biome-size screen fields and saving
+        run: python3 tests/biome_size_screen.py
+
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4
         with:

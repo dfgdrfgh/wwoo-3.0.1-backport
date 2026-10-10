@@ -6,6 +6,13 @@ import de.cristelknight.cristellib.config.simple.ConfigRegistry;
 import de.cristelknight.wwoo.config.WWOOConfig;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Climate;
+import net.minecraft.world.level.biome.MultiNoiseBiomeSource;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -58,6 +65,13 @@ public final class BiomeSizeProbe implements ModInitializer {
             check(new BiomeSizeConfig(Double.NaN).sizeMultiplier() == 1.0, "Nonfinite screen value");
             check(new BiomeSizeConfig(100).sizeMultiplier() == 8.0, "Screen upper bound");
             check(new BiomeSizeConfig(0).sizeMultiplier() == 0.25, "Screen lower bound");
+            check(config.scale("minecraft:pale_garden") == Double.parseDouble(System.getProperty("wwoo.audit.pale", "1")), "Individual saved scale not loaded");
+            check(config.biomeScales().keySet().containsAll(BiomeScaleOptions.ALL), "Missing per-biome defaults");
+            check(BiomeSizeConfig.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("{\"biomeScales\":{\"minecraft:pale_garden\":0}}" )).error().isPresent(), "Invalid individual scale accepted");
+            var legacy = BiomeSizeConfig.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("{\"sizeMultiplier\":2}" )).getOrThrow();
+            check(legacy.sizeMultiplier() == 2 && legacy.scale("minecraft:pale_garden") == 1, "Legacy config migration");
+            var custom = new BiomeSizeConfig(1, Map.of("test:biome", 3.0));
+            check(BiomeSizeConfig.CODEC.parse(JsonOps.INSTANCE, BiomeSizeConfig.CODEC.encodeStart(JsonOps.INSTANCE, custom).getOrThrow()).getOrThrow().scale("test:biome") == 3, "Custom biome round-trip");
 
             var access = c.level().registryAccess();
             var settings = access.registryOrThrow(Registries.NOISE_SETTINGS);
@@ -104,8 +118,81 @@ public final class BiomeSizeProbe implements ModInitializer {
                     System.out.println("BIOME_SIZE_CHECK " + key.location() + " climate_nodes=" + climate + " changed_samples=" + differences);
                 }
             } finally { holder.update(config); }
+            checkIndividual(c, enabled, config);
             System.out.println("BIOME_SIZE_PASS multiplier=" + expected + " enabled=" + enabled);
             return true;
         }
+    }
+
+    private static String id(Holder<Biome> biome) { return biome.unwrapKey().orElseThrow().location().toString(); }
+
+    private static double fitness(Climate.ParameterPoint p, Climate.TargetPoint t) {
+        var axes = List.of(p.temperature(), p.humidity(), p.continentalness(), p.erosion(), p.depth(), p.weirdness());
+        long[] values = {t.temperature(),t.humidity(),t.continentalness(),t.erosion(),t.depth(),t.weirdness()};
+        double score = (double)p.offset()*p.offset();
+        for (int i=0;i<6;i++) { double d=axes.get(i).distance(values[i]); score += d*d; }
+        return score;
+    }
+
+    private static void checkIndividual(FeaturePlaceContext<NoneFeatureConfiguration> c, boolean enabled, BiomeSizeConfig saved) {
+        var access = c.level().registryAccess();
+        var presets = access.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST);
+        var overworld = presets.getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST,
+            ResourceLocation.withDefaultNamespace("overworld")));
+        var parameters = overworld.value().parameters();
+        var source = MultiNoiseBiomeSource.createFromPreset(overworld);
+        check(BiomeScaleIndex.create(parameters, new BiomeSizeConfig(1)) == null, "Default lookup must bypass index");
+        var nether = presets.getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST,
+            ResourceLocation.withDefaultNamespace("nether")));
+        var large = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",2.0));
+        var small = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",0.5));
+        check(BiomeScaleIndex.create(nether.value().parameters(), large) == null, "Overworld override changed Nether");
+        var expanded = BiomeScaleIndex.create(parameters, large);
+        var shrunken = BiomeScaleIndex.create(parameters, small);
+        check(expanded != null && shrunken != null, "Pale Garden missing from generator");
+        var random = new Random(9988);
+        var allScales = new java.util.HashMap<String, Double>();
+        for (var pair : parameters.values()) allScales.put(id(pair.getSecond()), new double[]{0.25,0.5,1,2,8}[random.nextInt(5)]);
+        var mixed = new BiomeSizeConfig(1, allScales);
+        var indexed = BiomeScaleIndex.create(parameters, mixed);
+        for (int n=0;n<512;n++) {
+            var point = new Climate.TargetPoint(random.nextInt(24001)-12000,random.nextInt(24001)-12000,
+                random.nextInt(24001)-12000,random.nextInt(24001)-12000,random.nextInt(18001)-3000,random.nextInt(24001)-12000);
+            var original = parameters.findValue(point);
+            var winner = indexed.find(point, original);
+            double best=Double.POSITIVE_INFINITY, actual=Double.POSITIVE_INFINITY;
+            for (var pair : parameters.values()) {
+                double s=mixed.scale(id(pair.getSecond())); double f=fitness(pair.getFirst(),point)-62500*Math.log(s)/Math.log(2.0);
+                best=Math.min(best,f);
+                if (pair.getSecond().equals(winner)) actual=Math.min(actual,f);
+            }
+            check(Math.abs(best-actual)<0.0001, "Weighted index disagrees with exhaustive search");
+        }
+        var settings = access.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD).value();
+        var state = RandomState.create(settings, access.lookupOrThrow(Registries.NOISE),1234567L);
+        var configured = BiomeScaleIndex.create(parameters, saved);
+        int baselineCount=0, largeCount=0, smallCount=0, changes=0;
+        for (int x=-64;x<64;x++) for (int z=-64;z<64;z++) {
+            var point=state.sampler().sample(x*128,16,z*128);
+            var original=parameters.findValue(point);
+            var bigger=expanded.find(point,original); var smaller=shrunken.find(point,original);
+            boolean base=id(original).equals("minecraft:pale_garden"), big=id(bigger).equals("minecraft:pale_garden"), little=id(smaller).equals("minecraft:pale_garden");
+            baselineCount += base?1:0; largeCount += big?1:0; smallCount += little?1:0;
+            check(!base || big, "Expansion lost existing Pale Garden sample");
+            check(!little || base, "Shrinking created a new Pale Garden sample");
+            check(original.equals(bigger) || big, "Expansion changed an unrelated biome to a third biome");
+            check(original.equals(smaller) || base, "Shrinking changed a region outside Pale Garden");
+            var expected=enabled && configured!=null ? configured.find(point,original) : original;
+            var hooked=source.getNoiseBiome(point);
+            check(expected.equals(hooked), "Actual biome source did not apply individual config");
+            if (!hooked.equals(original)) changes++;
+            if (Boolean.getBoolean("wwoo.audit.worldgen")) {
+                var actual=c.level().getLevel().getChunkSource().getGenerator().getBiomeSource().getNoiseBiome(x*128,16,z*128,state.sampler());
+                check(actual.equals(hooked), "Running world biome source disagrees");
+            }
+        }
+        check(baselineCount>0 && smallCount<baselineCount && largeCount>baselineCount, "Individual scale did not change biome extent");
+        check(!enabled || saved.scale("minecraft:pale_garden")==1 || changes>0, "Saved selective scale had no effect");
+        System.out.println("BIOME_SIZE_CHECK individual pale_small="+smallCount+" pale_default="+baselineCount+" pale_large="+largeCount+" configured_changes="+changes+" exhaustive_samples=512");
     }
 }

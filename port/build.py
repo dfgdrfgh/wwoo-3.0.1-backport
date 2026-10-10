@@ -294,7 +294,7 @@ meta=json.loads(old.read('fabric.mod.json'));meta['version']='3.0.1-backport';me
 meta['accessWidener']='wwoo-biome-size.accesswidener'
 meta['mixins']=meta.get('mixins',[])+['wwoo-content.common.mixins.json',{'config':'wwoo-content.client.mixins.json','environment':'client'}]
 put('fabric.mod.json',meta)
-put('wwoo-content.common.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':['BiomeSizeMixin','BonemealMixin','PlantSupportMixins$Vegetation','PlantSupportMixins$Crops','PlantSupportMixins$Cocoa','PlantSupportMixins$Cactus','PlantSupportMixins$SugarCane','PlantSupportMixins$LeafSupport'],'injectors':{'defaultRequire':1}})
+put('wwoo-content.common.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':['BiomeSizeMixin','IndividualBiomeSizeMixin','BonemealMixin','PlantSupportMixins$Vegetation','PlantSupportMixins$Crops','PlantSupportMixins$Cocoa','PlantSupportMixins$Cactus','PlantSupportMixins$SugarCane','PlantSupportMixins$LeafSupport'],'injectors':{'defaultRequire':1}})
 put('wwoo-content.client.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','client':['CloudColorMixin','CloudRendererAccess','CloudRendererMixin','WWOOConfigScreenMixin'],'injectors':{'defaultRequire':1}})
 # Compile and remap only the added helpers; original mod classes remain byte-for-byte intact.
 jdk=Path(os.environ['WWOO_JAVA_HOME'])/'bin' if 'WWOO_JAVA_HOME' in os.environ else (ROOT/'toolchain/jdk/bin' if (ROOT/'toolchain/jdk/bin').exists() else Path(shutil.which('javac')).parent)

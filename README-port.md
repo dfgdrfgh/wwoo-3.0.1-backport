@@ -12,41 +12,68 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Biome size
 
-Open WWOO's config screen (with Cloth Config/Mod Menu installed) and choose the
-**Biome Size** section, or edit `config/wwoo/biome_size.json5`:
+Open **WWOO Config** (with Cloth Config/Mod Menu installed). The **General** tab
+contains the underground-patches setting. The **Biome Size** tab contains a
+global scale and expandable biome groups, with an individual field for every
+WWOO Overworld biome, including Pale Garden. All scales default to `1.0`.
+You can also edit `config/wwoo/biome_size.json5`:
 
 ```json5
 {
-  "sizeMultiplier": 1.0
+  "sizeMultiplier": 1.0,
+  "biomeScales": {
+    "minecraft:pale_garden": 2.0,
+    "minecraft:forest": 0.5
+  }
 }
 ```
 
-The range is **0.25–8.0**. `1.0` retains current generation, `2.0` generally makes
+The example expands Pale Garden and shrinks Forest. Omitted biomes retain `1.0`;
+the saved file lists all 56 supplied Overworld biomes. Namespaced custom keys
+are preserved and appear under **Other Biomes** in the screen. A setting only
+affects a biome if your world generator actually places that biome.
+
+Individual scales range from **0.25–8.0**: above `1.0` expands the biome's climate
+region boundaries, below `1.0` shrinks them. Growing a biome takes space from
+its neighbors and can make it more common. These are relative boundary controls,
+not guaranteed width multipliers. They retain the climate noise and terrain
+shape, use a small logarithmic adjustment to climate-selection fitness, and
+preserve the original selection exactly when all individual scales are `1.0`.
+Natural variation remains; no setting fixes tree counts, minimum area or width.
+Very rare biomes may disappear in a particular area when made smaller.
+
+The separate **Global Biome Scale** also ranges from **0.25–8.0**. Its saved key
+is still `sizeMultiplier`, so existing config files retain their setting.
+`1.0` retains current generation, `2.0` generally makes
 biome regions twice as wide, and `0.5` generally makes them half as wide. This
 scales their horizontal climate-noise frequencies; it does not prescribe a
 fixed width, minimum area or tree count. Pale Gardens and other biomes still
 vary naturally from small patches to larger regions. Narrow rivers, transition
 biomes and climate-dependent regions retain their underlying placement rules.
 
-The setting applies to Overworld generators using vanilla climate noises,
+The global setting applies to Overworld generators using vanilla climate noises,
 including Default, Large Biomes and Amplified. Large Biomes keeps its existing
 scale before this additional multiplier. Climate noises shared with terrain
 are scaled together so mountains/coastlines remain consistent with biome
 selection. Height limits, decoration density, cave/aquifer/ore detail noises,
 Nether and End generation are preserved. Disabling WWOO's main pack disables
-this scaling. Generators supplied by other mods with their own biome-placement
-systems may not use these noises.
+this scaling. Individual settings apply to Minecraft's multi-noise biome sources
+and leave Nether/End presets unchanged. Generators supplied by other mods with
+their own biome-placement systems may not use these hooks.
 
 After saving in the screen, close and reopen the world. After editing the file,
 restart the game/server. Existing chunks keep their terrain and biomes; changing
 the multiplier in an existing world can create seams at new chunk boundaries.
 The default has no generation changes. The original WWOO config file and its
-remove-underground-patches setting remain separate.
+remove-underground-patches setting retain their existing values.
 
 `tests/biome_size.py` checks the missing-file default, both range limits, smaller
 and larger regions, preserved existing settings, unchanged noise registries,
 all three Overworld presets, Nether/End, finite terrain samples and disabled
-packs using the actual dedicated-server mixins. The test probe is never bundled
+packs using the actual dedicated-server mixins. It also checks per-biome defaults
+and migration, custom-key persistence, monotonic Pale Garden expansion/shrinking,
+unchanged unrelated regions, the normal world's biome source, and mixed scales
+against an exhaustive climate search. The test probe is never bundled
 in the released mod. Run it after `tests/build_biome_size_probe.py`, with the
 normal test dependencies installed.
 

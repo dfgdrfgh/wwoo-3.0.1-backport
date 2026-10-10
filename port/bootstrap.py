@@ -47,6 +47,12 @@ client_mappings=download(version['downloads']['client_mappings']['url'],ROOT/'to
 subprocess.run([str(jdk/'java'),'-cp',cp+os.pathsep+str(ROOT),'MappingTool','mappings',str(client_mappings),str(ROOT/'client-mojmap.tiny')],check=True,cwd=ROOT)
 if not (ROOT/'minecraft-client-named.jar').exists():
     subprocess.run([str(jdk/'java'),'-Xmx2G','-cp',cp+os.pathsep+str(ROOT),'MappingTool','remap',str(client),str(ROOT/'minecraft-client-named.jar'),str(ROOT/'client-mojmap.tiny'),'official','named'],check=True,cwd=ROOT)
+# Compile against the optional config-screen API in the same named namespace.
+# It remains an optional client dependency and is never bundled with WWOO.
+client_api=ROOT/'toolchain/client-api';client_api.mkdir(exist_ok=True)
+cloth=download('https://cdn.modrinth.com/data/9s6osm5g/versions/HpMb5wGb/cloth-config-15.0.140-fabric.jar',client_api/'cloth-config.jar')
+for source,target,mapping,src,dst in [(cloth,client_api/'cloth-config-official.jar',ROOT/'intermediary.tiny','intermediary','official'),(client_api/'cloth-config-official.jar',client_api/'cloth-config-named.jar',ROOT/'client-mojmap.tiny','official','named')]:
+    if not target.exists():subprocess.run([str(jdk/'java'),'-cp',cp+os.pathsep+str(ROOT),'MappingTool','remap',str(source),str(target),str(mapping),src,dst],check=True,cwd=ROOT)
 modern_metadata=ROOT/'toolchain/26.3-version.json'
 if not modern_metadata.exists():
     entry=next(x for x in manifest['versions'] if x['id']=='26.3')
@@ -56,7 +62,7 @@ if not (ROOT/'toolchain/minecraft-26.3.jar').exists():
     bundle=download(modern['downloads']['server']['url'],ROOT/'toolchain/server-26.3-bundle.jar')
     with zipfile.ZipFile(bundle) as z:
         (ROOT/'toolchain/minecraft-26.3.jar').write_bytes(z.read('META-INF/versions/'+modern['id']+'/server-'+modern['id']+'.jar'))
-compilecp=os.pathsep.join([str(ROOT/'minecraft-named.jar'),cp,*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')]])
+compilecp=os.pathsep.join([str(ROOT/'minecraft-named.jar'),cp,str(client_api/'cloth-config-named.jar'),*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')]])
 (ROOT/'compile-classpath.txt').write_text(compilecp)
-(runtime/'launch-classpath.txt').write_text(os.pathsep.join([*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')],cp]))
+(runtime/'launch-classpath.txt').write_text(os.pathsep.join([*[str(p.resolve()) for p in (runtime/'libraries').rglob('*.jar')],cp,str(intermediary.resolve())]))
 print('Ready. Run python3 port/build.py from the project directory.')
