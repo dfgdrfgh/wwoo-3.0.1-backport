@@ -1,6 +1,7 @@
 package com.zachminecraft.wwoocontent;
 
 import java.util.Map;
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.BiConsumer;
@@ -9,33 +10,27 @@ import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import me.shedaniel.clothconfig2.impl.builders.DoubleFieldBuilder;
 import net.minecraft.network.chat.Component;
 
-/** Optional client screen: one tab, with expandable groups of individual biomes. */
+/** One config page, with a single expandable section and a flat biome list. */
 public final class BiomeSizeScreen {
     public static void add(ConfigBuilder builder, ConfigEntryBuilder entries, BiomeSizeConfig config,
             BiConsumer<String, Object> update) {
-        var category = builder.getOrCreateCategory(Component.literal("Biome Size"));
-        category.addEntry(entries.startTextDescription(Component.literal(
+        builder.setAlwaysShowTabs(false);
+        var category = builder.getOrCreateCategory(Component.literal("WWOO Config"));
+        var section = entries.startSubCategory(Component.literal("Biome Size")).setExpanded(false);
+        section.add(entries.startTextDescription(Component.literal(
             "Choose a biome to expand or shrink. 1.0 keeps its current size variation. "
             + "Reopen the world after saving; changes affect new chunks.")).build());
-        category.addEntry(field(entries, "Global Biome Scale", config.sizeMultiplier())
+        section.add(field(entries, "Global Biome Scale", config.sizeMultiplier())
             .setTooltip(Component.literal("Scales the whole Overworld biome map. 2.0 generally makes regions twice as wide. Individual scales below adjust selected biomes."))
             .setSaveConsumer(value -> update.accept("sizeMultiplier", value)).build());
         var edits = new TreeMap<>(config.biomeScales());
-        for (var group : BiomeScaleOptions.GROUPS.entrySet()) {
-            var section = entries.startSubCategory(Component.literal(group.getKey())).setExpanded(false);
-            for (String id : group.getValue()) section.add(biomeField(entries, id, config, edits, update).build());
-            category.addEntry(section.build());
+        for (String id : edits.keySet().stream().sorted(Comparator.comparing(BiomeSizeScreen::biomeName)).toList()) {
+            section.add(biomeField(entries, id, config, edits, update).build());
         }
-        var extra = edits.keySet().stream().filter(id -> !BiomeScaleOptions.ALL.contains(id)).toList();
-        if (!extra.isEmpty()) {
-            var section = entries.startSubCategory(Component.literal("Other Biomes")).setExpanded(false);
-            for (String id : extra) section.add(biomeField(entries, id, config, edits, update).build());
-            category.addEntry(section.build());
-        }
+        category.addEntry(section.build());
     }
 
-    private static DoubleFieldBuilder biomeField(ConfigEntryBuilder entries, String id, BiomeSizeConfig config,
-            Map<String, Double> edits, BiConsumer<String, Object> update) {
+    private static String biomeName(String id) {
         String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
         var name = new StringBuilder();
         for (String word : path.split("_")) {
@@ -45,7 +40,12 @@ public final class BiomeSizeScreen {
         }
         if (name.isEmpty()) name.append(id);
         if (!id.startsWith("minecraft:")) name.append(" (").append(id).append(')');
-        return field(entries, name.toString(), config.scale(id))
+        return name.toString();
+    }
+
+    private static DoubleFieldBuilder biomeField(ConfigEntryBuilder entries, String id, BiomeSizeConfig config,
+            Map<String, Double> edits, BiConsumer<String, Object> update) {
+        return field(entries, biomeName(id), config.scale(id))
             .setTooltip(Component.literal(id), Component.literal(
                 "1.0 = unchanged; higher = expand, lower = shrink. Relative boundary scale, not an exact width. Expanding takes space from neighbors and can make this biome more common. Natural variation remains. Only affects biomes used by your world generator."))
             .setSaveConsumer(value -> {

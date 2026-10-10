@@ -27,11 +27,12 @@ public abstract class WWOOConfigScreenMixin {
     private void wwoo$title(ConfigBuilder builder, ConfigEntryBuilder entries, CallbackInfo ci) {
         if (((ConfigScreenExtension) (Object) this).modId.equals("wwoo")) {
             builder.setTitle(Component.literal("WWOO Config"));
+            builder.setAlwaysShowTabs(false);
         }
     }
 
     @Inject(method = "addConfigToCategory", at = @At("HEAD"), cancellable = true, remap = false)
-    private void wwoo$biomeTab(ConfigBuilder builder, ConfigEntryBuilder entries,
+    private void wwoo$biomeSection(ConfigBuilder builder, ConfigEntryBuilder entries,
             SimpleConfigScreen screen, CallbackInfo ci) {
         if (screen.simpleConfig() == BiomeSizeConfig.class) {
             BiomeSizeScreen.add(builder, entries, ConfigRegistry.get(BiomeSizeConfig.class),

@@ -4,6 +4,7 @@ import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import me.shedaniel.clothconfig2.api.*;
 import me.shedaniel.clothconfig2.impl.builders.*;
 import me.shedaniel.clothconfig2.gui.entries.*;
@@ -11,8 +12,8 @@ import net.minecraft.network.chat.Component;
 
 /** Exercise the real screen's field construction and save callbacks without a window. */
 public final class BiomeSizeScreenProbe {
-    private static final Map<String, NumberField> fields = new HashMap<>();
-    private static final ArrayList<String> groups = new ArrayList<>();
+    private static final Map<String, NumberField> fields = new LinkedHashMap<>();
+    private static final Map<String, Group> groups = new LinkedHashMap<>();
     private static class NumberField extends DoubleFieldBuilder {
         NumberField(Component name, double value) { super(Component.literal("Reset"), name, value); }
         public DoubleListEntry build() { return null; }
@@ -20,7 +21,12 @@ public final class BiomeSizeScreenProbe {
         boolean invalid(double value) { return errorSupplier.apply(value).isPresent(); }
     }
     private static class Group extends SubCategoryBuilder {
+        boolean expanded = true;
         Group(Component name) { super(Component.literal("Reset"), name); }
+        public SubCategoryBuilder setExpanded(boolean expanded) {
+            this.expanded = expanded;
+            return super.setExpanded(expanded);
+        }
         public SubCategoryListEntry build() { return null; }
     }
     private static class Description extends TextDescriptionBuilder {
@@ -34,11 +40,17 @@ public final class BiomeSizeScreenProbe {
     private static void check(boolean ok, String message) { if (!ok) throw new AssertionError(message); }
     public static void main(String[] args) {
         var categories = new ArrayList<String>();
-        ConfigCategory category = proxy(ConfigCategory.class, (p,m,a) -> p);
+        var rootEntries = new ArrayList<Object>();
+        boolean[] hideTabs = {false};
+        ConfigCategory category = proxy(ConfigCategory.class, (p,m,a) -> {
+            if (m.getName().equals("addEntry")) rootEntries.add(a[0]);
+            return p;
+        });
         ConfigBuilder builder = proxy(ConfigBuilder.class, (p,m,a) -> {
             if (m.getName().equals("getOrCreateCategory")) {
                 categories.add(((Component)a[0]).getString()); return category;
             }
+            if (m.getName().equals("setAlwaysShowTabs")) { hideTabs[0] = !(Boolean)a[0]; return p; }
             throw new AssertionError(m);
         });
         ConfigEntryBuilder entries = proxy(ConfigEntryBuilder.class, (p,m,a) -> {
@@ -47,7 +59,7 @@ public final class BiomeSizeScreenProbe {
                 case "startDoubleField" -> {
                     var field = new NumberField(name, (Double)a[1]); fields.put(name.getString(),field); yield field;
                 }
-                case "startSubCategory" -> { groups.add(name.getString()); yield new Group(name); }
+                case "startSubCategory" -> { var group = new Group(name); groups.put(name.getString(),group); yield group; }
                 case "startTextDescription" -> new Description(name);
                 default -> throw new AssertionError(m);
             };
@@ -55,9 +67,15 @@ public final class BiomeSizeScreenProbe {
         var original = new BiomeSizeConfig(1.5, Map.of("minecraft:pale_garden",2.0,"minecraft:forest",0.5,"test:custom_biome",3.0));
         var updates = new HashMap<String,Object>();
         BiomeSizeScreen.add(builder,entries,original,updates::put);
-        check(categories.equals(java.util.List.of("Biome Size")), "Biome Size tab");
-        check(groups.size()==8 && groups.contains("Forests") && groups.contains("Other Biomes"), "Expandable groups");
+        check(categories.equals(java.util.List.of("WWOO Config")) && hideTabs[0], "One config page without tabs");
+        check(groups.keySet().equals(java.util.Set.of("Biome Size")), "Biome Size must be the only expandable section; no biome categories");
+        check(!groups.get("Biome Size").expanded, "Biome Size starts collapsed");
+        check(rootEntries.size()==1 && groups.get("Biome Size").size()==BiomeScaleOptions.ALL.size()+3, "All scale fields belong to the same section");
         check(fields.size()==BiomeScaleOptions.ALL.size()+2, "Not every biome has a field");
+        var names = new ArrayList<>(fields.keySet());
+        check(names.removeFirst().equals("Global Biome Scale"), "Global scale must appear first");
+        var sorted = new ArrayList<>(names); sorted.sort(String::compareTo);
+        check(names.equals(sorted), "Every biome must appear in one alphabetical list");
         check(fields.get("Global Biome Scale").current()==1.5, "Existing global scale");
         check(fields.get("Pale Garden").current()==2 && fields.get("Forest").current()==0.5, "Independent saved values");
         for (var field : fields.values()) {

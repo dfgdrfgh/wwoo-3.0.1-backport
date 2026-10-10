@@ -24,7 +24,7 @@ public record WWOOConfig(boolean removeOres) {
         }
     };
     public static void register() {
-        ConfigRegistry.registerWithScreen(WWOOConfig.class,SETTINGS,"wwoo","General",() -> {});
+        ConfigRegistry.registerWithScreen(WWOOConfig.class,SETTINGS,"wwoo","WWOO Config",() -> {});
         com.zachminecraft.wwoocontent.BiomeSizeConfig.register();
     }
 }

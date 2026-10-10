@@ -12,10 +12,11 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Biome size
 
-Open **WWOO Config** (with Cloth Config/Mod Menu installed). The **General** tab
-contains the underground-patches setting. The **Biome Size** tab contains a
-global scale and expandable biome groups, with an individual field for every
-WWOO Overworld biome, including Pale Garden. All scales default to `1.0`.
+Open **WWOO Config** (with Cloth Config/Mod Menu installed). All settings are on
+one page, with no category tabs. The underground-patches setting stays on this
+page. Expand **Biome Size** for the global scale first, followed by one flat
+alphabetical list of every WWOO Overworld biome, including Pale Garden. There
+are no separate forest/ocean/etc. groups. All scales default to `1.0`.
 You can also edit `config/wwoo/biome_size.json5`:
 
 ```json5
@@ -30,7 +31,7 @@ You can also edit `config/wwoo/biome_size.json5`:
 
 The example expands Pale Garden and shrinks Forest. Omitted biomes retain `1.0`;
 the saved file lists all 56 supplied Overworld biomes. Namespaced custom keys
-are preserved and appear under **Other Biomes** in the screen. A setting only
+are preserved and appear in the same biome list in the screen. A setting only
 affects a biome if your world generator actually places that biome.
 
 Individual scales range from **0.25–8.0**: above `1.0` expands the biome's climate
