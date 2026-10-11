@@ -12,12 +12,24 @@ import net.minecraft.world.level.biome.Climate;
 
 /** Weighted climate-region boundaries, with a bounding-volume search index.
  * Larger scales let a biome win farther from its original climate region.
- * A bounded logarithmic fitness bias moves edges without multiplying vanilla
- * offsets or long-distance climate differences. This changes relative extent
- * and occurrence, not noise frequencies or exact block widths.
+ * The symmetric squared-scale response gives 4x/8x settings meaningfully more
+ * reach than 2x, without changing the underlying climate or terrain noises.
+ * This changes relative extent, not an exact guaranteed block width.
  */
 public final class BiomeScaleIndex {
     private static final double EDGE_ALLOWANCE = 250.0 * 250.0;
+
+    // Quantized climate distances are squared. Scale the selection advantage
+    // quadratically as well; the previous log2 response compressed 2x..8x
+    // into nearly the same small edge adjustment. Reciprocal values shrink.
+    // At 1.0 this is exactly zero and preserves vanilla selection.
+    static double biomeBias(double scale) {
+        double relativeReach = scale >= 1.0
+            ? scale * scale - 1.0
+            : 1.0 - 1.0 / (scale * scale);
+        return -EDGE_ALLOWANCE * relativeReach;
+    }
+
     private final Node root;
     private final Map<Holder<Biome>, Node> byBiome;
 
@@ -66,8 +78,7 @@ public final class BiomeScaleIndex {
         final double offsetAndBias;
         Entry(Climate.ParameterPoint point, Holder<Biome> biome, double scale) {
             this.biome = biome;
-            offsetAndBias = (double) point.offset() * point.offset()
-                - EDGE_ALLOWANCE * Math.log(scale) / Math.log(2.0);
+            offsetAndBias = (double) point.offset() * point.offset() + biomeBias(scale);
             var axes = List.of(point.temperature(), point.humidity(), point.continentalness(),
                 point.erosion(), point.depth(), point.weirdness());
             for (int i = 0; i < 6; i++) {

@@ -39,8 +39,10 @@ Individual scales range from **0.25–8.0**: above `1.0` expands the biome's cli
 region boundaries, below `1.0` shrinks them. Growing a biome takes space from
 its neighbors and can make it more common. These are relative boundary controls,
 not guaranteed width multipliers. They retain the climate noise and terrain
-shape, use a small logarithmic adjustment to climate-selection fitness, and
-preserve the original selection exactly when all individual scales are `1.0`.
+shape, use a squared-scale adjustment to climate-selection fitness so that
+`4.0` and `8.0` are substantially stronger than `2.0`, and preserve the
+original selection exactly when all individual scales are `1.0`. High values
+can greatly expand rare biomes and reduce their neighbors' area.
 Natural variation remains; no setting fixes tree counts, minimum area or width.
 Very rare biomes may disappear in a particular area when made smaller.
 

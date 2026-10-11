@@ -146,9 +146,19 @@ public final class BiomeSizeProbe implements ModInitializer {
             ResourceLocation.withDefaultNamespace("nether")));
         var large = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",2.0));
         var small = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",0.5));
+        var larger = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",4.0));
+        var largest = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",8.0));
+        check(BiomeScaleIndex.biomeBias(1.0) == 0.0, "Default biome bias must be zero");
+        check(BiomeScaleIndex.biomeBias(2.0) == -187500.0, "2x scale bias unexpectedly changed");
+        check(BiomeScaleIndex.biomeBias(4.0) == -937500.0, "4x must have visibly stronger reach");
+        check(BiomeScaleIndex.biomeBias(8.0) == -3937500.0, "8x must not saturate at 2x");
+        check(BiomeScaleIndex.biomeBias(0.5) == 187500.0, "0.5x must shrink symmetrically");
+        check(BiomeScaleIndex.biomeBias(0.25) == 937500.0, "0.25x must shrink more than 0.5x");
         check(BiomeScaleIndex.create(nether.value().parameters(), large) == null, "Overworld override changed Nether");
         var expanded = BiomeScaleIndex.create(parameters, large);
         var shrunken = BiomeScaleIndex.create(parameters, small);
+        var expanded4 = BiomeScaleIndex.create(parameters, larger);
+        var expanded8 = BiomeScaleIndex.create(parameters, largest);
         check(expanded != null && shrunken != null, "Pale Garden missing from generator");
         var random = new Random(9988);
         var allScales = new java.util.HashMap<String, Double>();
@@ -162,7 +172,7 @@ public final class BiomeSizeProbe implements ModInitializer {
             var winner = indexed.find(point, original);
             double best=Double.POSITIVE_INFINITY, actual=Double.POSITIVE_INFINITY;
             for (var pair : parameters.values()) {
-                double s=mixed.scale(id(pair.getSecond())); double f=fitness(pair.getFirst(),point)-62500*Math.log(s)/Math.log(2.0);
+                double s=mixed.scale(id(pair.getSecond())); double f=fitness(pair.getFirst(),point)+BiomeScaleIndex.biomeBias(s);
                 best=Math.min(best,f);
                 if (pair.getSecond().equals(winner)) actual=Math.min(actual,f);
             }
@@ -171,13 +181,18 @@ public final class BiomeSizeProbe implements ModInitializer {
         var settings = access.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD).value();
         var state = RandomState.create(settings, access.lookupOrThrow(Registries.NOISE),1234567L);
         var configured = BiomeScaleIndex.create(parameters, saved);
-        int baselineCount=0, largeCount=0, smallCount=0, changes=0;
+        int baselineCount=0, largeCount=0, fourCount=0, eightCount=0, smallCount=0, changes=0;
         for (int x=-64;x<64;x++) for (int z=-64;z<64;z++) {
             var point=state.sampler().sample(x*128,16,z*128);
             var original=parameters.findValue(point);
             var bigger=expanded.find(point,original); var smaller=shrunken.find(point,original);
+            var bigger4=expanded4.find(point,original); var bigger8=expanded8.find(point,original);
             boolean base=id(original).equals("minecraft:pale_garden"), big=id(bigger).equals("minecraft:pale_garden"), little=id(smaller).equals("minecraft:pale_garden");
-            baselineCount += base?1:0; largeCount += big?1:0; smallCount += little?1:0;
+            boolean big4=id(bigger4).equals("minecraft:pale_garden"), big8=id(bigger8).equals("minecraft:pale_garden");
+            baselineCount += base?1:0; largeCount += big?1:0; fourCount += big4?1:0;
+            eightCount += big8?1:0; smallCount += little?1:0;
+            check(!big || big4, "4x expansion lost a 2x Pale Garden sample");
+            check(!big4 || big8, "8x expansion lost a 4x Pale Garden sample");
             check(!base || big, "Expansion lost existing Pale Garden sample");
             check(!little || base, "Shrinking created a new Pale Garden sample");
             check(original.equals(bigger) || big, "Expansion changed an unrelated biome to a third biome");
@@ -192,7 +207,9 @@ public final class BiomeSizeProbe implements ModInitializer {
             }
         }
         check(baselineCount>0 && smallCount<baselineCount && largeCount>baselineCount, "Individual scale did not change biome extent");
+        check(fourCount>largeCount && eightCount>fourCount,
+            "Biome expansion appears saturated before reaching 8x");
         check(!enabled || saved.scale("minecraft:pale_garden")==1 || changes>0, "Saved selective scale had no effect");
-        System.out.println("BIOME_SIZE_CHECK individual pale_small="+smallCount+" pale_default="+baselineCount+" pale_large="+largeCount+" configured_changes="+changes+" exhaustive_samples=512");
+        System.out.println("BIOME_SIZE_CHECK individual pale_small="+smallCount+" pale_default="+baselineCount+" pale_2x="+largeCount+" pale_4x="+fourCount+" pale_8x="+eightCount+" configured_changes="+changes+" exhaustive_samples=512");
     }
 }
