@@ -43,8 +43,8 @@ public abstract class WWOOConfigScreenMixin {
         // retaining the separate config files and normal save callbacks.
         var screens = new ArrayList<>(ClientConfigRegistry.getScreens("wwoo"));
         screens.sort(Comparator.comparingInt(screen -> {
-            if (screen.simpleConfig() == BiomeSizeConfig.class) return 0;
-            if (screen.simpleConfig() == WWOOConfig.class) return 1;
+            if (screen.simpleConfig() == WWOOConfig.class) return 0;
+            if (screen.simpleConfig() == BiomeSizeConfig.class) return 1;
             return 2;
         }));
         for (SimpleConfigScreen screen : screens) {
