@@ -51,6 +51,7 @@ public final class BiomeSizeProbe implements ModInitializer {
     private static final class Probe extends Feature<NoneFeatureConfiguration> {
         Probe() { super(NoneFeatureConfiguration.CODEC); }
         public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> c) {
+            System.out.println("BIOME_SIZE_STARTED");
             double expected = Double.parseDouble(System.getProperty("wwoo.audit.multiplier"));
             boolean enabled = Boolean.parseBoolean(System.getProperty("wwoo.audit.enabled"));
             var config = ConfigRegistry.get(BiomeSizeConfig.class);

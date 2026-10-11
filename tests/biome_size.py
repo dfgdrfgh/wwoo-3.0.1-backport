@@ -48,7 +48,7 @@ for mode, multiplier, enabled in [('default',1.0,True), ('small',0.5,True), ('la
                     p.stdin.write('gamerule spawnChunkRadius 0\nforceload add 0 0 31 31\nplace feature audit:probe 0 64 0\n'); p.stdin.flush(); sent=True
                     last_probe = time.monotonic()
                 # Forced chunks finish loading asynchronously in a normal world.
-                if sent and not stopped and 'BIOME_SIZE_PASS' not in text and time.monotonic()-last_probe > 5:
+                if sent and not stopped and 'BIOME_SIZE_STARTED' not in text and time.monotonic()-last_probe > 5:
                     p.stdin.write('place feature audit:probe 0 64 0\n'); p.stdin.flush(); last_probe=time.monotonic()
                 if 'BIOME_SIZE_PASS' in text and not stopped:
                     p.stdin.write('save-all flush\nstop\n'); p.stdin.flush(); stopped=True
@@ -58,6 +58,8 @@ for mode, multiplier, enabled in [('default',1.0,True), ('small',0.5,True), ('la
             assert p.returncode == 0 and sent and stopped, log
         finally:
             if p.poll() is None: p.kill(); p.wait()
+    assert log.read_text().count('BIOME_SIZE_STARTED') == 1, 'Probe was queued more than once: '+str(log)
     print(mode, 'BIOME_SIZE_PASS', flush=True)
     for line in log.read_text().splitlines():
         if 'BIOME_SIZE_CHECK' in line: print(line,flush=True)
+
