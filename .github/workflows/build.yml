@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main, fix-individual-biome-scale-response-2026-10-10]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
