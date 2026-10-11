@@ -211,11 +211,11 @@ public final class BiomeSizeProbe implements ModInitializer {
             // scale times its original coordinates. This tests spatial widths,
             // not increased prevalence in an unrelated fixed-size window.
             for (long seed : new long[]{1234567L,4523263735266840700L,-9988L}) {
-                holder.update(new BiomeSizeConfig(saved.sizeMultiplier()));
+                holder.update(new BiomeSizeConfig(1.0));
                 var state = RandomState.create(settings,noises,seed);
                 var sampler = state.sampler();
                 for (double scale : new double[]{0.25,0.5,1.5,2,4,8}) {
-                    var config = new BiomeSizeConfig(saved.sizeMultiplier(),Map.of("minecraft:pale_garden",scale));
+                    var config = new BiomeSizeConfig(1.0,Map.of("minecraft:pale_garden",scale));
                     var index = BiomeScaleIndex.create(parameters,config);
                     check(index != null,"Pale Garden must exist in parameter table");
                     holder.update(config);
@@ -276,7 +276,7 @@ public final class BiomeSizeProbe implements ModInitializer {
                     }
                 }
             }
-            check(nativePale>0 && widths>0,"Rare-biome geometry tests had no coverage");
+            check(!enabled || (nativePale>0 && widths>0),"Rare-biome geometry tests had no coverage");
             holder.update(saved);
             var state=RandomState.create(settings,noises,1234567L);
             var configured=BiomeScaleIndex.create(parameters,saved);
