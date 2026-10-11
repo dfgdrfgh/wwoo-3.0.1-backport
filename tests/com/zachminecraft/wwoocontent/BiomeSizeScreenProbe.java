@@ -76,13 +76,21 @@ public final class BiomeSizeScreenProbe {
         check(names.removeFirst().equals("Global Biome Scale"), "Global scale must appear first");
         var sorted = new ArrayList<>(names); sorted.sort(String::compareTo);
         check(names.equals(sorted), "Every biome must appear in one alphabetical list");
-        // Exercise the actual selection response in CI, not just the slider bounds.
-        check(BiomeScaleIndex.biomeBias(1.0)==0.0, "1.0 must leave climate selection unchanged");
-        check(BiomeScaleIndex.biomeBias(2.0)==-187500.0, "2.0 selection response");
-        check(BiomeScaleIndex.biomeBias(4.0)==-937500.0, "4.0 must expand more than 2.0");
-        check(BiomeScaleIndex.biomeBias(8.0)==-3937500.0, "8.0 must expand more than 4.0");
-        check(BiomeScaleIndex.biomeBias(0.5)==187500.0, "0.5 must shrink regions");
-        check(BiomeScaleIndex.biomeBias(0.25)==937500.0, "0.25 must shrink more than 0.5");
+        // Check real selection weights rather than trusting only the slider limits.
+        // No allowed setting may again overpower selection by millions of units.
+        check(BiomeScaleIndex.biomeBias(1.0) == 0.0, "1.0 must leave selection unchanged");
+        for (double scale : new double[] {0.25, 0.5, 1.0, 2.0, 4.0, 8.0}) {
+            check(Math.abs(BiomeScaleIndex.biomeBias(scale)) <= 375000.001,
+                "Biome score can overpower unrelated climates: " + scale);
+        }
+        check(Math.abs(BiomeScaleIndex.biomeBias(2.0) + 125000) < 0.001, "2.0 response");
+        check(Math.abs(BiomeScaleIndex.biomeBias(4.0) + 250000) < 0.001, "4.0 response");
+        check(Math.abs(BiomeScaleIndex.biomeBias(8.0) + 375000) < 0.001, "8.0 response");
+        check(Math.abs(BiomeScaleIndex.biomeBias(0.5) - 125000) < 0.001, "0.5 shrink");
+        check(Math.abs(BiomeScaleIndex.biomeBias(0.25) - 250000) < 0.001, "0.25 shrink");
+        check(BiomeScaleIndex.biomeBias(8.0) < BiomeScaleIndex.biomeBias(4.0)
+            && BiomeScaleIndex.biomeBias(4.0) < BiomeScaleIndex.biomeBias(2.0),
+            "Increasing the setting must still expand biome regions");
         check(fields.get("Global Biome Scale").current()==1.5, "Existing global scale");
         check(fields.get("Pale Garden").current()==2 && fields.get("Forest").current()==0.5, "Independent saved values");
         for (var field : fields.values()) {
