@@ -60,6 +60,18 @@ public final class BiomeScaleIndex {
         return (int) Math.floor(coordinate / scale);
     }
 
+    public boolean isUniform() { return uniform; }
+
+    /** A uniform map needs only its warped native lookup. Looking up the
+     * unwarped point first can change vanilla's cached tie preference.
+     */
+    public Holder<Biome> findUniform(int x, int y, int z, Climate.Sampler sampler,
+            Climate.TargetPoint point, Function<Climate.TargetPoint, Holder<Biome>> lookup) {
+        double scale = sampleScales[0];
+        int sx = scaledCoordinate(x, scale), sz = scaledCoordinate(z, scale);
+        return lookup.apply(sx == x && sz == z ? point : sampler.sample(sx, y, sz));
+    }
+
     public Holder<Biome> find(int x, int y, int z, Climate.Sampler sampler,
             Climate.TargetPoint point, Holder<Biome> original,
             Function<Climate.TargetPoint, Holder<Biome>> lookup) {

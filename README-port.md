@@ -58,6 +58,9 @@ different scales and masks leave gaps, the native winner fills them. Overlaps
 and these gaps mean independent width multipliers are approximate, not a
 promise for every connected region. Equal scales on every biome reproduce the
 whole native biome map at the scaled coordinates exactly.
+The uniform path makes only the warped biome lookup, preserving Minecraft's
+cached preference between equally fitting climates instead of changing it with
+an unnecessary unwarped lookup.
 
 Expanding a biome takes space from neighbors. Individual masks can move across
 existing terrain/climate boundaries because the terrain remains unchanged;
@@ -100,6 +103,18 @@ reloads, negative/world-border coordinates, mixed-scale gaps and parallel
 sampling. Normal-world fixtures also check the running chunk generator. The
 screen probe checks existing fields and saving. Test mods are never bundled in
 the installable JAR. GitHub Actions runs these tests before publishing its JAR.
+
+`tests/smp_pack.py /absolute/path/pack.mrpack` repeats the audit with an external
+Modrinth pack's exact server-compatible JARs, Fabric Loader version, configs and
+saved-world seed. It verifies download hashes, keeps the pack untouched, and
+creates separate fresh worlds for loaded-source sampling, the original WWOO,
+default scaling, Pale Garden shrink/expansion, and global scaling. The loaded
+source probe checks uniform and individual scales, concurrent lookups, climate
+samples and terrain density, including modded multi-noise dimensions. Real
+chunk generation runs separately so temporary probe config changes cannot
+affect the generation fixtures. Client rendering and gameplay are outside this
+dedicated-server audit. The pack itself is not included in the repository or
+uploaded to Actions. Build/bootstrap must finish before running the audit.
 
 ## Content and compatibility
 

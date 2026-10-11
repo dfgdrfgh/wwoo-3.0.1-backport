@@ -183,6 +183,26 @@ public final class BiomeSizeProbe implements ModInitializer {
                 "Measured width did not multiply by configured scale");
             System.out.println("BIOME_SIZE_CHECK geometric_scale="+scale+" native_quart_widths=[49,131,307] measured_quart_widths="+widths);
         }
+        // Preserve vanilla's last-result preference at an exact climate tie.
+        // An unnecessary unwarped lookup would select plains before the warped
+        // lookup and change this boundary from the previously selected pale.
+        var negative = new Climate.Parameter(-10000, -10000);
+        var positive = new Climate.Parameter(10000, 10000);
+        var tied = new Climate.ParameterList<Holder<Biome>>(List.of(
+            com.mojang.datafixers.util.Pair.of(new Climate.ParameterPoint(negative,zero,zero,zero,zero,zero,0),pale),
+            com.mojang.datafixers.util.Pair.of(new Climate.ParameterPoint(positive,zero,zero,zero,zero,zero,0),plains)));
+        var source = MultiNoiseBiomeSource.createFromList(tied);
+        var tieSampler = new Climate.Sampler(new Axis(0),constant,constant,constant,constant,constant,List.of());
+        var holder = ConfigRegistry.holder(BiomeSizeConfig.class);
+        var saved = ConfigRegistry.get(BiomeSizeConfig.class);
+        try {
+            holder.update(new BiomeSizeConfig(1,Map.of("minecraft:pale_garden",8.0,"minecraft:plains",8.0)));
+            check(source.getNoiseBiome(tieSampler.sample(-1,0,0)).equals(pale),"Tie fixture did not select pale");
+            check(source.getNoiseBiome(tieSampler.sample(0,0,0)).equals(pale),"Native tie preference changed");
+            check(source.getNoiseBiome(6,0,0,tieSampler).equals(Boolean.parseBoolean(System.getProperty("wwoo.audit.enabled")) ? pale : plains),
+                "Uniform scaling polluted native tie cache or enabled a disabled pack");
+        } finally {holder.update(saved);}
+        System.out.println("BIOME_SIZE_CHECK uniform_native_tie_preserved=true");
     }
 
     private static void checkIndividual(FeaturePlaceContext<NoneFeatureConfiguration> c, boolean enabled, BiomeSizeConfig saved) {

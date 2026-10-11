@@ -33,8 +33,7 @@ public abstract class IndividualBiomeSizeMixin {
     private Holder<Biome> wwoo$individualSize(MultiNoiseBiomeSource source,
             Climate.TargetPoint point, Operation<Holder<Biome>> original,
             int x, int y, int z, Climate.Sampler sampler) {
-        var vanilla = original.call(source, point);
-        if (!BiomeScaling.isPackActive()) return vanilla;
+        if (!BiomeScaling.isPackActive()) return original.call(source, point);
         var config = ConfigRegistry.get(BiomeSizeConfig.class);
         var parameters = wwoo$parameters();
         var state = wwoo$state;
@@ -47,7 +46,11 @@ public abstract class IndividualBiomeSizeMixin {
                 }
             }
         }
-        return state.index() == null ? vanilla : state.index().find(x, y, z, sampler, point, vanilla,
+        if (state.index() == null) return original.call(source, point);
+        if (state.index().isUniform()) return state.index().findUniform(x, y, z, sampler, point,
+            sampled -> original.call(source, sampled));
+        var vanilla = original.call(source, point);
+        return state.index().find(x, y, z, sampler, point, vanilla,
             sampled -> original.call(source, sampled));
     }
 }
