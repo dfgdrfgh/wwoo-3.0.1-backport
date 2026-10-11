@@ -149,11 +149,13 @@ public final class BiomeSizeProbe implements ModInitializer {
         var larger = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",4.0));
         var largest = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",8.0));
         check(BiomeScaleIndex.biomeBias(1.0) == 0.0, "Default biome bias must be zero");
-        check(BiomeScaleIndex.biomeBias(2.0) == -187500.0, "2x scale bias unexpectedly changed");
-        check(BiomeScaleIndex.biomeBias(4.0) == -937500.0, "4x must have visibly stronger reach");
-        check(BiomeScaleIndex.biomeBias(8.0) == -3937500.0, "8x must not saturate at 2x");
-        check(BiomeScaleIndex.biomeBias(0.5) == 187500.0, "0.5x must shrink symmetrically");
-        check(BiomeScaleIndex.biomeBias(0.25) == 937500.0, "0.25x must shrink more than 0.5x");
+        check(Math.abs(BiomeScaleIndex.biomeBias(2.0) + 125000) < 0.001, "2x bias");
+        check(Math.abs(BiomeScaleIndex.biomeBias(4.0) + 250000) < 0.001, "4x bias");
+        check(Math.abs(BiomeScaleIndex.biomeBias(8.0) + 375000) < 0.001, "8x bias");
+        check(Math.abs(BiomeScaleIndex.biomeBias(0.5) - 125000) < 0.001, "0.5x bias");
+        check(Math.abs(BiomeScaleIndex.biomeBias(0.25) - 250000) < 0.001, "0.25x bias");
+        check(Math.abs(BiomeScaleIndex.biomeBias(8.0)) < 400000,
+            "Biome size weights can again overpower unrelated climate regions");
         check(BiomeScaleIndex.create(nether.value().parameters(), large) == null, "Overworld override changed Nether");
         var expanded = BiomeScaleIndex.create(parameters, large);
         var shrunken = BiomeScaleIndex.create(parameters, small);

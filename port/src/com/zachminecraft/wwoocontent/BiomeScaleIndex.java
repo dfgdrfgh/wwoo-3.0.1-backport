@@ -12,22 +12,22 @@ import net.minecraft.world.level.biome.Climate;
 
 /** Weighted climate-region boundaries, with a bounding-volume search index.
  * Larger scales let a biome win farther from its original climate region.
- * The symmetric squared-scale response gives 4x/8x settings meaningfully more
- * reach than 2x, without changing the underlying climate or terrain noises.
- * This changes relative extent, not an exact guaranteed block width.
+ * A bounded log response avoids letting an 8x override swallow unrelated
+ * climate regions. This adjusts relative extent, not guaranteed block width.
  */
 public final class BiomeScaleIndex {
     private static final double EDGE_ALLOWANCE = 250.0 * 250.0;
+    private static final double BIAS_STRENGTH = 2.0;
 
-    // Quantized climate distances are squared. Scale the selection advantage
-    // quadratically as well; the previous log2 response compressed 2x..8x
-    // into nearly the same small edge adjustment. Reciprocal values shrink.
-    // At 1.0 this is exactly zero and preserves vanilla selection.
+    // A biome's per-scale advantage is measured in squared climate-distance
+    // units, NOT blocks. A squared-scale response at 8x gave a -3,937,500 bias,
+    // overwhelming normal biome competition and allowing huge takeovers.
+    // A log2 response stays proportional across octave steps while remaining
+    // bounded to +/-375,000 for the supported 0.25..8.0 range.
+    // Exactly 1.0 has no effect; reciprocal scales shrink symmetrically.
     static double biomeBias(double scale) {
-        double relativeReach = scale >= 1.0
-            ? scale * scale - 1.0
-            : 1.0 - 1.0 / (scale * scale);
-        return -EDGE_ALLOWANCE * relativeReach;
+        if (scale == 1.0) return 0.0;
+        return -EDGE_ALLOWANCE * BIAS_STRENGTH * Math.log(scale) / Math.log(2.0);
     }
 
     private final Node root;
