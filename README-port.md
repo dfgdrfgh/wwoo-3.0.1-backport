@@ -35,18 +35,36 @@ the saved file lists all 56 supplied Overworld biomes. Namespaced custom keys
 are preserved and appear in the same biome list in the screen. A setting only
 affects a biome if your world generator actually places that biome.
 
-Individual scales range from **0.25–8.0**: above `1.0` expands the biome's climate
-region boundaries, below `1.0` shrinks them. Growing a biome takes space from
-its neighbors and can make it more common. These are relative boundary controls,
-not guaranteed width multipliers. They retain the climate noise and terrain
-shape, use a bounded logarithmic adjustment to climate-selection fitness
-so that each increase still expands relative boundaries without letting an
-`8.0` setting overwhelm unrelated climates. The original biome selection is
-preserved exactly when all individual scales are `1.0`. Individual scales are
-not literal block-width multipliers; unusually large regions may still occur
-naturally or when combined with Global Biome Scale.
-Natural variation remains; no setting fixes tree counts, minimum area or width.
-Very rare biomes may disappear in a particular area when made smaller.
+Individual scales range from **0.25–8.0** and resample that biome's native
+horizontal pattern at `(floor(x / scale), y, floor(z / scale))` in Minecraft's
+four-block biome grid. Thus a naturally 200-block-wide patch has a roughly
+400-block-wide footprint at `2.0` and 1,600 blocks at `8.0`, before competition
+with other independently scaled biomes. Small patches and large forests retain
+their original size variation; no minimum or maximum block widths are imposed.
+The original climate noise, climate parameter ranges/offsets, terrain density,
+caves, aquifers, height sampling and feature density are not rewritten by
+individual scaling. With all settings at `1.0`, the original lookup runs
+unchanged, including its native tie decisions.
+
+Spatial scaling is anchored at the world origin. It scales biome locations as
+well as dimensions, so this is not an enlargement around every old patch's
+center. An overridden biome's old footprint is not also kept: doing so would
+join unrelated regions and defeat the width multiplier. A single override has
+exact native-mask scaling apart from grid rounding. Different scaled masks can
+overlap; the candidate closest to its own native climate wins, with the native
+winner retained on exact ties. Space vacated by an override uses the unchanged
+nearest-climate lookup among unscaled biomes. If every biome is overridden at
+different scales and masks leave gaps, the native winner fills them. Overlaps
+and these gaps mean independent width multipliers are approximate, not a
+promise for every connected region. Equal scales on every biome reproduce the
+whole native biome map at the scaled coordinates exactly.
+
+Expanding a biome takes space from neighbors. Individual masks can move across
+existing terrain/climate boundaries because the terrain remains unchanged;
+there is no claim that an individually enlarged coast or mountain biome also
+moves the coast or mountain itself. Use Global Biome Scale when coordinated
+terrain and biome scaling is needed. Rare biomes can move out of a searched
+area or disappear there when shrunk.
 
 The separate **Global Biome Scale** also ranges from **0.25–8.0**. Its saved key
 is still `sizeMultiplier`, so existing config files retain their setting.
@@ -73,15 +91,15 @@ the multiplier in an existing world can create seams at new chunk boundaries.
 The default has no generation changes. The original WWOO config file and its
 remove-underground-patches setting retain their existing values.
 
-`tests/biome_size.py` checks the missing-file default, both range limits, smaller
-and larger regions, preserved existing settings, unchanged noise registries,
-all three Overworld presets, Nether/End, finite terrain samples and disabled
-packs using the actual dedicated-server mixins. It also checks per-biome defaults
-and migration, custom-key persistence, monotonic Pale Garden expansion/shrinking,
-unchanged unrelated regions, the normal world's biome source, and mixed scales
-against an exhaustive climate search. The test probe is never bundled
-in the released mod. Run it after `tests/build_biome_size_probe.py`, with the
-normal test dependencies installed.
+`tests/biome_size.py` checks defaults/migration/range limits, saved configs,
+all three Overworld presets, Nether/End, pack disabling, unchanged noise
+registries and climate samples, and finite terrain samples using actual server
+mixins. The spatial probe checks native mask covariance and transect boundaries
+at 0.25/0.5/1.5/2/4/8 across three seeds, uniform scale equivalence, repeated config
+reloads, negative/world-border coordinates, mixed-scale gaps and parallel
+sampling. Normal-world fixtures also check the running chunk generator. The
+screen probe checks existing fields and saving. Test mods are never bundled in
+the installable JAR. GitHub Actions runs these tests before publishing its JAR.
 
 ## Content and compatibility
 
@@ -139,3 +157,4 @@ python3 port/validate.py test-full-validation
 Re-running the optional cross-version noise test also requires Java 25 and the 26.3 runtime libraries. The recorded comparison is included.
 
 The tests create their own local, offline dedicated-server world. Upstream author metadata and the upstream WWOO license are retained in the replacement JAR and both supplied inputs.
+

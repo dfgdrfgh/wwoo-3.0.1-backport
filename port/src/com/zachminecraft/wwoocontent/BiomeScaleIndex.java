@@ -6,64 +6,87 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.function.Function;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Climate;
 
-/** Weighted climate-region boundaries, with a bounding-volume search index.
- * Larger scales let a biome win farther from its original climate region.
- * A bounded log response avoids letting an 8x override swallow unrelated
- * climate regions. This adjusts relative extent, not guaranteed block width.
+/** Dilate each biome's native horizontal mask without modifying climate noise.
+ * Equal scales share a sample; there are no region caches or width estimates.
  */
 public final class BiomeScaleIndex {
-    private static final double EDGE_ALLOWANCE = 250.0 * 250.0;
-    private static final double BIAS_STRENGTH = 2.0;
-
-    // A biome's per-scale advantage is measured in squared climate-distance
-    // units, NOT blocks. A squared-scale response at 8x gave a -3,937,500 bias,
-    // overwhelming normal biome competition and allowing huge takeovers.
-    // A log2 response stays proportional across octave steps while remaining
-    // bounded to +/-375,000 for the supported 0.25..8.0 range.
-    // Exactly 1.0 has no effect; reciprocal scales shrink symmetrically.
-    static double biomeBias(double scale) {
-        if (scale == 1.0) return 0.0;
-        return -EDGE_ALLOWANCE * BIAS_STRENGTH * Math.log(scale) / Math.log(2.0);
-    }
-
-    private final Node root;
+    private final Map<Holder<Biome>, Double> scales;
+    private final double[] sampleScales;
+    private final Climate.ParameterList<Holder<Biome>> defaults;
     private final Map<Holder<Biome>, Node> byBiome;
+    private final boolean uniform;
 
-    private BiomeScaleIndex(List<Entry> entries) {
-        root = new Node(entries.toArray(Entry[]::new));
+    private BiomeScaleIndex(Climate.ParameterList<Holder<Biome>> parameters, BiomeSizeConfig config) {
+        var scaleMap = new HashMap<Holder<Biome>, Double>();
         var groups = new HashMap<Holder<Biome>, List<Entry>>();
-        for (Entry entry : entries) groups.computeIfAbsent(entry.biome, k -> new ArrayList<>()).add(entry);
-        byBiome = new HashMap<>();
-        groups.forEach((biome, group) -> byBiome.put(biome, new Node(group.toArray(Entry[]::new))));
-    }
-
-    /** null preserves the original vanilla lookup for entirely default sources. */
-    public static BiomeScaleIndex create(Climate.ParameterList<Holder<Biome>> parameters, BiomeSizeConfig config) {
-        if (!config.hasBiomeOverrides()) return null;
-        boolean changed = false;
-        var entries = new ArrayList<Entry>();
+        var unchanged = new ArrayList<com.mojang.datafixers.util.Pair<Climate.ParameterPoint, Holder<Biome>>>();
+        var distinct = new TreeSet<Double>();
         for (var pair : parameters.values()) {
             var biome = pair.getSecond();
-            double scale = biome.unwrapKey().map(key -> config.scale(key.location().toString())).orElse(1.0);
-            changed |= scale != 1.0;
-            entries.add(new Entry(pair.getFirst(), biome, scale));
+            double scale = biome.unwrapKey().map(k -> config.scale(k.location().toString())).orElse(1.0);
+            scaleMap.put(biome, scale);
+            distinct.add(scale);
+            if (scale == 1.0) unchanged.add(pair);
+            groups.computeIfAbsent(biome, b -> new ArrayList<>()).add(new Entry(pair.getFirst(), biome));
         }
-        return changed ? new BiomeScaleIndex(entries) : null;
+        scales = Map.copyOf(scaleMap);
+        uniform = distinct.size() == 1;
+        distinct.remove(1.0);
+        sampleScales = distinct.stream().mapToDouble(Double::doubleValue).toArray();
+        defaults = unchanged.isEmpty() ? null : new Climate.ParameterList<>(unchanged);
+        byBiome = new HashMap<>();
+        groups.forEach((biome, entries) -> byBiome.put(biome, new Node(entries.toArray(Entry[]::new))));
     }
 
-    public Holder<Biome> find(Climate.TargetPoint point, Holder<Biome> original) {
-        long[] target = {point.temperature(), point.humidity(), point.continentalness(),
-            point.erosion(), point.depth(), point.weirdness()};
-        // Seed with the original winner. Equal fitness retains vanilla's tie
-        // decision, so unrelated biomes do not swap just because an index exists.
-        var best = new Best(original);
-        byBiome.get(original).search(target, best);
-        root.search(target, best);
-        return best.biome;
+    /** null retains the original code path, including its exact tie decisions. */
+    public static BiomeScaleIndex create(Climate.ParameterList<Holder<Biome>> parameters, BiomeSizeConfig config) {
+        if (!config.hasBiomeOverrides()) return null;
+        boolean changed = parameters.values().stream().anyMatch(pair -> pair.getSecond().unwrapKey()
+            .map(k -> config.scale(k.location().toString()) != 1.0).orElse(false));
+        return changed ? new BiomeScaleIndex(parameters, config) : null;
+    }
+
+    /** Native quart-grid rounding, including negative coordinates. Integer
+     * saturation protects only the sampler domain, never a biome's dimensions.
+     * Coordinates within the world border do not approach that limit.
+     */
+    public static int scaledCoordinate(int coordinate, double scale) {
+        return (int) Math.floor(coordinate / scale);
+    }
+
+    public Holder<Biome> find(int x, int y, int z, Climate.Sampler sampler,
+            Climate.TargetPoint point, Holder<Biome> original,
+            Function<Climate.TargetPoint, Holder<Biome>> lookup) {
+        Holder<Biome> winner = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (double scale : sampleScales) {
+            int sx = scaledCoordinate(x, scale), sz = scaledCoordinate(z, scale);
+            var sampled = sx == x && sz == z ? point : sampler.sample(sx, y, sz);
+            var candidate = sampled == point ? original : lookup.apply(sampled);
+            if (uniform) return candidate;
+            // Use only the mask at its own frequency. Unioning its original
+            // footprint back in would destroy the intended width multiplier.
+            if (scales.getOrDefault(candidate, 1.0) != scale) continue;
+            var node = byBiome.get(candidate);
+            if (node == null) continue; // Another mod supplied an external holder.
+            double score = node.score(sampled);
+            if (score < best || (score == best && candidate.equals(original))) {
+                winner = candidate;
+                best = score;
+            }
+        }
+        if (winner != null) return winner;
+        if (scales.getOrDefault(original, 1.0) == 1.0) return original;
+        // Vacated space uses unchanged vanilla climate fitness among unscaled
+        // entries. If every biome has a distinct override and masks leave a
+        // gap, retain the native winner there to avoid holes.
+        return defaults == null ? original : defaults.findValue(point);
     }
 
     private static final class Best {
@@ -75,10 +98,10 @@ public final class BiomeScaleIndex {
     private static final class Entry {
         final Holder<Biome> biome;
         final long[] min = new long[6], max = new long[6];
-        final double offsetAndBias;
-        Entry(Climate.ParameterPoint point, Holder<Biome> biome, double scale) {
+        final double offsetSquared;
+        Entry(Climate.ParameterPoint point, Holder<Biome> biome) {
             this.biome = biome;
-            offsetAndBias = (double) point.offset() * point.offset() + biomeBias(scale);
+            offsetSquared = (double) point.offset() * point.offset();
             var axes = List.of(point.temperature(), point.humidity(), point.continentalness(),
                 point.erosion(), point.depth(), point.weirdness());
             for (int i = 0; i < 6; i++) {
@@ -86,7 +109,7 @@ public final class BiomeScaleIndex {
             }
         }
         double score(long[] target) {
-            return distance(target, min, max) + offsetAndBias;
+            return distance(target, min, max) + offsetSquared;
         }
     }
 
@@ -102,19 +125,19 @@ public final class BiomeScaleIndex {
 
     private static final class Node {
         final long[] min = new long[6], max = new long[6];
-        final double minOffsetAndBias;
+        final double minOffsetSquared;
         final Node left, right;
         final Entry[] leaves;
         Node(Entry[] entries) {
             Arrays.fill(min, Long.MAX_VALUE); Arrays.fill(max, Long.MIN_VALUE);
             double minOffset = Double.POSITIVE_INFINITY;
             for (Entry entry : entries) {
-                minOffset = Math.min(minOffset, entry.offsetAndBias);
+                minOffset = Math.min(minOffset, entry.offsetSquared);
                 for (int i = 0; i < 6; i++) {
                     min[i] = Math.min(min[i], entry.min[i]); max[i] = Math.max(max[i], entry.max[i]);
                 }
             }
-            minOffsetAndBias = minOffset;
+            minOffsetSquared = minOffset;
             if (entries.length <= 8) {
                 leaves = entries; left = right = null;
             } else {
@@ -128,8 +151,15 @@ public final class BiomeScaleIndex {
                 leaves = null;
             }
         }
+        double score(Climate.TargetPoint point) {
+            long[] target = {point.temperature(), point.humidity(), point.continentalness(),
+                point.erosion(), point.depth(), point.weirdness()};
+            var best = new Best(null);
+            search(target, best);
+            return best.score;
+        }
         double bound(long[] target) {
-            return distance(target, min, max) + minOffsetAndBias;
+            return distance(target, min, max) + minOffsetSquared;
         }
         void search(long[] target, Best best) {
             if (bound(target) >= best.score) return;
@@ -148,3 +178,4 @@ public final class BiomeScaleIndex {
         }
     }
 }
+

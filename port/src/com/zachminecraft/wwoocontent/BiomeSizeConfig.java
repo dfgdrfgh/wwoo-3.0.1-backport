@@ -44,7 +44,7 @@ public record BiomeSizeConfig(double sizeMultiplier, Map<String, Double> biomeSc
         public HashMap<String, String> getComments() {
             var comments = new HashMap<String, String>();
             comments.put("sizeMultiplier", "Range: 0.25 to 8.0. 1.0 = unchanged, 2.0 = generally twice as wide, 0.5 = generally half as wide. Biomes still vary naturally; this does not set tree counts or a minimum size. Restart/reopen the world to apply. Only newly generated chunks change. Changing this for an existing world can create terrain seams.");
-            comments.put("biomeScales", "Each biome has its own relative scale: 1.0 = unchanged, above 1.0 = expand, below 1.0 = shrink. Range: 0.25 to 8.0. Expanding a biome takes space from its neighbors and can make it more common. These are relative boundary controls, not exact block widths. Restart/reopen the world to apply; only new chunks change.");
+            comments.put("biomeScales", "Each biome scales its native horizontal pattern about the world origin: 1.0 = unchanged, above 1.0 = expand, below 1.0 = shrink. Range: 0.25 to 8.0. Expanding a biome takes space from its neighbors and can make it more common. Natural patch widths are approximately multiplied, with grid rounding and competition where different scales overlap. Positions also scale; climate noise and terrain stay unchanged. No fixed block widths. Restart/reopen the world to apply; only new chunks change.");
             return comments;
         }
     };
@@ -53,3 +53,4 @@ public record BiomeSizeConfig(double sizeMultiplier, Map<String, Double> biomeSc
         ConfigRegistry.registerWithScreen(BiomeSizeConfig.class, SETTINGS, "wwoo", "Biome Size", () -> {});
     }
 }
+

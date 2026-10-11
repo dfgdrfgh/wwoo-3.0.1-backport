@@ -134,6 +134,56 @@ public final class BiomeSizeProbe implements ModInitializer {
         return score;
     }
 
+    private static Holder<Biome> find(BiomeScaleIndex index, Climate.ParameterList<Holder<Biome>> parameters,
+            int x, int y, int z, Climate.Sampler sampler) {
+        var point = sampler.sample(x,y,z);
+        var nativeBiome = parameters.findValue(point);
+        return index == null ? nativeBiome : index.find(x,y,z,sampler,point,nativeBiome,parameters::findValue);
+    }
+
+    private record Axis(int axis) implements DensityFunction.SimpleFunction {
+        public double compute(DensityFunction.FunctionContext c) {
+            return (axis==0?c.blockX():axis==1?c.blockZ():c.blockY())/4.0;
+        }
+        public double minValue(){return -30000000;}
+        public double maxValue(){return 30000000;}
+        public net.minecraft.util.KeyDispatchDataCodec<? extends DensityFunction> codec(){throw new UnsupportedOperationException("Test-only function");}
+    }
+
+    private static void checkSyntheticGeometry(Climate.ParameterList<Holder<Biome>> nativeParameters) {
+        var pale=nativeParameters.values().stream().map(p->p.getSecond()).filter(b->id(b).equals("minecraft:pale_garden")).findFirst().orElseThrow();
+        var plains=nativeParameters.values().stream().map(p->p.getSecond()).filter(b->id(b).equals("minecraft:plains")).findFirst().orElseThrow();
+        var zero=new Climate.Parameter(0,0);
+        var p=new Climate.ParameterPoint(zero,zero,zero,zero,zero,zero,0);
+        var parameters=new Climate.ParameterList<Holder<Biome>>(List.of(com.mojang.datafixers.util.Pair.of(p,pale),com.mojang.datafixers.util.Pair.of(p,plains)));
+        var constant=DensityFunctions.constant(0);
+        var sampler=new Climate.Sampler(new Axis(0),new Axis(1),constant,constant,new Axis(2),constant,List.of());
+        int[][] patches={{-900,-851},{-500,-369},{100,407}}; // widths 49, 131, 307 quart cells, naturally varied
+        java.util.function.Function<Climate.TargetPoint,Holder<Biome>> lookup=t->{
+            check(t.depth()==160000,"Horizontal scaling changed sampling height");
+            long x=t.temperature()/10000,z=t.humidity()/10000;
+            for(var patch:patches)if(x>=patch[0]&&x<patch[1]&&z>=-31&&z<28)return pale;
+            return plains;
+        };
+        for(double scale:new double[]{0.25,0.5,1.5,2,4,8}) {
+            var index=BiomeScaleIndex.create(parameters,new BiomeSizeConfig(1,Map.of("minecraft:pale_garden",scale)));
+            var widths=new ArrayList<Integer>();int run=0;
+            for(int x=-8000;x<4000;x++) {
+                var point=sampler.sample(x,16,0);var original=lookup.apply(point);
+                var actual=index.find(x,16,0,sampler,point,original,lookup);
+                boolean expected=false;
+                for(var patch:patches)if(x>=Math.ceil(patch[0]*scale)&&x<Math.ceil(patch[1]*scale))expected=true;
+                check(actual.equals(expected?pale:plains),"Geometric dilation changed boundary at "+x+" scale="+scale);
+                if(actual.equals(pale))run++;
+                else if(run>0){widths.add(run);run=0;}
+            }
+            check(widths.size()==3,"Natural patch count or variation lost");
+            for(int n=0;n<3;n++)check(Math.abs(widths.get(n)-(patches[n][1]-patches[n][0])*scale)<=1,
+                "Measured width did not multiply by configured scale");
+            System.out.println("BIOME_SIZE_CHECK geometric_scale="+scale+" native_quart_widths=[49,131,307] measured_quart_widths="+widths);
+        }
+    }
+
     private static void checkIndividual(FeaturePlaceContext<NoneFeatureConfiguration> c, boolean enabled, BiomeSizeConfig saved) {
         var access = c.level().registryAccess();
         var presets = access.registryOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST);
@@ -141,77 +191,126 @@ public final class BiomeSizeProbe implements ModInitializer {
             ResourceLocation.withDefaultNamespace("overworld")));
         var parameters = overworld.value().parameters();
         var source = MultiNoiseBiomeSource.createFromPreset(overworld);
-        check(BiomeScaleIndex.create(parameters, new BiomeSizeConfig(1)) == null, "Default lookup must bypass index");
+        checkSyntheticGeometry(parameters);
         var nether = presets.getHolderOrThrow(ResourceKey.create(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST,
             ResourceLocation.withDefaultNamespace("nether")));
-        var large = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",2.0));
-        var small = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",0.5));
-        var larger = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",4.0));
-        var largest = new BiomeSizeConfig(saved.sizeMultiplier(), Map.of("minecraft:pale_garden",8.0));
-        check(BiomeScaleIndex.biomeBias(1.0) == 0.0, "Default biome bias must be zero");
-        check(Math.abs(BiomeScaleIndex.biomeBias(2.0) + 125000) < 0.001, "2x bias");
-        check(Math.abs(BiomeScaleIndex.biomeBias(4.0) + 250000) < 0.001, "4x bias");
-        check(Math.abs(BiomeScaleIndex.biomeBias(8.0) + 375000) < 0.001, "8x bias");
-        check(Math.abs(BiomeScaleIndex.biomeBias(0.5) - 125000) < 0.001, "0.5x bias");
-        check(Math.abs(BiomeScaleIndex.biomeBias(0.25) - 250000) < 0.001, "0.25x bias");
-        check(Math.abs(BiomeScaleIndex.biomeBias(8.0)) < 400000,
-            "Biome size weights can again overpower unrelated climate regions");
-        check(BiomeScaleIndex.create(nether.value().parameters(), large) == null, "Overworld override changed Nether");
-        var expanded = BiomeScaleIndex.create(parameters, large);
-        var shrunken = BiomeScaleIndex.create(parameters, small);
-        var expanded4 = BiomeScaleIndex.create(parameters, larger);
-        var expanded8 = BiomeScaleIndex.create(parameters, largest);
-        check(expanded != null && shrunken != null, "Pale Garden missing from generator");
-        var random = new Random(9988);
-        var allScales = new java.util.HashMap<String, Double>();
-        for (var pair : parameters.values()) allScales.put(id(pair.getSecond()), new double[]{0.25,0.5,1,2,8}[random.nextInt(5)]);
-        var mixed = new BiomeSizeConfig(1, allScales);
-        var indexed = BiomeScaleIndex.create(parameters, mixed);
-        for (int n=0;n<512;n++) {
-            var point = new Climate.TargetPoint(random.nextInt(24001)-12000,random.nextInt(24001)-12000,
-                random.nextInt(24001)-12000,random.nextInt(24001)-12000,random.nextInt(18001)-3000,random.nextInt(24001)-12000);
-            var original = parameters.findValue(point);
-            var winner = indexed.find(point, original);
-            double best=Double.POSITIVE_INFINITY, actual=Double.POSITIVE_INFINITY;
-            for (var pair : parameters.values()) {
-                double s=mixed.scale(id(pair.getSecond())); double f=fitness(pair.getFirst(),point)+BiomeScaleIndex.biomeBias(s);
-                best=Math.min(best,f);
-                if (pair.getSecond().equals(winner)) actual=Math.min(actual,f);
-            }
-            check(Math.abs(best-actual)<0.0001, "Weighted index disagrees with exhaustive search");
-        }
+        check(BiomeScaleIndex.create(parameters, new BiomeSizeConfig(1)) == null, "Defaults must use native lookup");
+        check(BiomeScaleIndex.create(parameters, new BiomeSizeConfig(1, Map.of("test:absent",8.0))) == null,
+            "Absent override must not activate sampling");
+        check(BiomeScaleIndex.create(nether.value().parameters(), new BiomeSizeConfig(1, Map.of("minecraft:pale_garden",8.0))) == null,
+            "Overworld override changed Nether");
+        check(BiomeScaleIndex.scaledCoordinate(-1,2) == -1 && BiomeScaleIndex.scaledCoordinate(1,2) == 0,
+            "Negative coordinates must floor, not truncate");
+        check(BiomeScaleIndex.scaledCoordinate(-7500000,0.25) == -30000000, "World border overflow");
         var settings = access.registryOrThrow(Registries.NOISE_SETTINGS).getHolderOrThrow(NoiseGeneratorSettings.OVERWORLD).value();
-        var state = RandomState.create(settings, access.lookupOrThrow(Registries.NOISE),1234567L);
-        var configured = BiomeScaleIndex.create(parameters, saved);
-        int baselineCount=0, largeCount=0, fourCount=0, eightCount=0, smallCount=0, changes=0;
-        for (int x=-64;x<64;x++) for (int z=-64;z<64;z++) {
-            var point=state.sampler().sample(x*128,16,z*128);
-            var original=parameters.findValue(point);
-            var bigger=expanded.find(point,original); var smaller=shrunken.find(point,original);
-            var bigger4=expanded4.find(point,original); var bigger8=expanded8.find(point,original);
-            boolean base=id(original).equals("minecraft:pale_garden"), big=id(bigger).equals("minecraft:pale_garden"), little=id(smaller).equals("minecraft:pale_garden");
-            boolean big4=id(bigger4).equals("minecraft:pale_garden"), big8=id(bigger8).equals("minecraft:pale_garden");
-            baselineCount += base?1:0; largeCount += big?1:0; fourCount += big4?1:0;
-            eightCount += big8?1:0; smallCount += little?1:0;
-            check(!big || big4, "4x expansion lost a 2x Pale Garden sample");
-            check(!big4 || big8, "8x expansion lost a 4x Pale Garden sample");
-            check(!base || big, "Expansion lost existing Pale Garden sample");
-            check(!little || base, "Shrinking created a new Pale Garden sample");
-            check(original.equals(bigger) || big, "Expansion changed an unrelated biome to a third biome");
-            check(original.equals(smaller) || base, "Shrinking changed a region outside Pale Garden");
-            var expected=enabled && configured!=null ? configured.find(point,original) : original;
-            var hooked=source.getNoiseBiome(point);
-            check(expected.equals(hooked), "Actual biome source did not apply individual config");
-            if (!hooked.equals(original)) changes++;
-            if (Boolean.getBoolean("wwoo.audit.worldgen")) {
-                var actual=c.level().getLevel().getChunkSource().getGenerator().getBiomeSource().getNoiseBiome(x*128,16,z*128,state.sampler());
-                check(actual.equals(hooked), "Running world biome source disagrees");
+        var noises = access.lookupOrThrow(Registries.NOISE);
+        var holder = ConfigRegistry.holder(BiomeSizeConfig.class);
+        int masks=0, widths=0, activeChanges=0, nativePale=0;
+        try {
+            // Covariance: every native mask point maps to the same biome at
+            // scale times its original coordinates. This tests spatial widths,
+            // not increased prevalence in an unrelated fixed-size window.
+            for (long seed : new long[]{1234567L,4523263735266840700L,-9988L}) {
+                holder.update(new BiomeSizeConfig(saved.sizeMultiplier()));
+                var state = RandomState.create(settings,noises,seed);
+                var sampler = state.sampler();
+                for (double scale : new double[]{0.25,0.5,1.5,2,4,8}) {
+                    var config = new BiomeSizeConfig(saved.sizeMultiplier(),Map.of("minecraft:pale_garden",scale));
+                    var index = BiomeScaleIndex.create(parameters,config);
+                    check(index != null,"Pale Garden must exist in parameter table");
+                    holder.update(config);
+                    var after = RandomState.create(settings,noises,seed);
+                    check(rows(state.router()).equals(rows(after.router())),"Individual scale modified noise router");
+                    for (int x=-32;x<32;x++) for (int z=-32;z<32;z++) {
+                        int bx=x*128,bz=z*128,tx=(int)(bx*scale),tz=(int)(bz*scale);
+                        var nativeBiome=parameters.findValue(sampler.sample(bx,16,bz));
+                        var resized=find(index,parameters,tx,16,tz,sampler);
+                        boolean pale=id(nativeBiome).equals("minecraft:pale_garden");
+                        check(pale == id(resized).equals("minecraft:pale_garden"),"Native mask failed spatial covariance at "+scale);
+                        if (pale) nativePale++;
+                        masks++;
+                        if (seed==1234567L && scale==saved.scale("minecraft:pale_garden")) {
+                            var actual=source.getNoiseBiome(tx,16,tz,sampler);
+                            check(actual.equals(enabled ? resized : parameters.findValue(sampler.sample(tx,16,tz))),"Coordinate mixin did not compose correctly");
+                        }
+                        check(source.getNoiseBiome(sampler.sample(tx,16,tz)).equals(parameters.findValue(sampler.sample(tx,16,tz))),
+                            "Climate-only lookup changed");
+                        check(state.sampler().sample(tx,16,tz).equals(after.sampler().sample(tx,16,tz)),"Individual override changed climate values");
+                    }
+                    // Compare complete transect runs at corresponding points;
+                    // every run's physical length is multiplied by the scale.
+                    boolean prev=false; int run=0;
+                    for (int x=-512;x<=512;x++) {
+                        int bx=x*16,bz=-1024;
+                        boolean base=id(parameters.findValue(sampler.sample(bx,16,bz))).equals("minecraft:pale_garden");
+                        boolean actual=id(find(index,parameters,(int)(bx*scale),16,(int)(bz*scale),sampler)).equals("minecraft:pale_garden");
+                        check(base==actual,"Transect boundary did not multiply");
+                        if (base) run++;
+                        if (prev && !base) { check(run*16*scale > 0,"Invalid scaled width"); widths++;run=0; }
+                        prev=base;
+                    }
+                }
+                // Exact native behavior, negative and positive coordinates and
+                // underground/surface/heights, on the actual transformed source.
+                holder.update(new BiomeSizeConfig(saved.sizeMultiplier()));
+                for (int y : new int[]{-12,0,16,64}) for(int n=0;n<512;n++) {
+                    int x=n*337-80000,z=n*197-40000;
+                    var point=sampler.sample(x,y,z);
+                    check(parameters.findValue(point).equals(source.getNoiseBiome(x,y,z,sampler)),"Default generation changed");
+                }
+                // Uniform individual scales must give the exact native map at
+                // the new coordinates, with no collision arbitration at all.
+                for (double scale : new double[]{0.25,0.5,2,8}) {
+                    var all = new java.util.HashMap<String,Double>();
+                    for(var pair:parameters.values()) all.put(id(pair.getSecond()),scale);
+                    var config=new BiomeSizeConfig(saved.sizeMultiplier(),all);
+                    holder.update(config);
+                    var index=BiomeScaleIndex.create(parameters,config);
+                    for(int n=0;n<512;n++) {
+                        int x=n*337-80000,z=n*197-40000,y=n%80-12;
+                        var expected=parameters.findValue(sampler.sample(BiomeScaleIndex.scaledCoordinate(x,scale),y,
+                            BiomeScaleIndex.scaledCoordinate(z,scale)));
+                        check(find(index,parameters,x,y,z,sampler).equals(expected),"Uniform masks did not preserve native map");
+                        check(source.getNoiseBiome(x,y,z,sampler).equals(enabled?expected:parameters.findValue(sampler.sample(x,y,z))),
+                            "Uniform runtime lookup differs");
+                    }
+                }
             }
-        }
-        check(baselineCount>0 && smallCount<baselineCount && largeCount>baselineCount, "Individual scale did not change biome extent");
-        check(fourCount>largeCount && eightCount>fourCount,
-            "Biome expansion appears saturated before reaching 8x");
-        check(!enabled || saved.scale("minecraft:pale_garden")==1 || changes>0, "Saved selective scale had no effect");
-        System.out.println("BIOME_SIZE_CHECK individual pale_small="+smallCount+" pale_default="+baselineCount+" pale_2x="+largeCount+" pale_4x="+fourCount+" pale_8x="+eightCount+" configured_changes="+changes+" exhaustive_samples=512");
+            check(nativePale>0 && widths>0,"Rare-biome geometry tests had no coverage");
+            holder.update(saved);
+            var state=RandomState.create(settings,noises,1234567L);
+            var configured=BiomeScaleIndex.create(parameters,saved);
+            for(int n=0;n<4096;n++) {
+                int x=(n%64-32)*128,z=(n/64-32)*128;
+                var point=state.sampler().sample(x,16,z);
+                var nativeBiome=parameters.findValue(point);
+                var expected=enabled?find(configured,parameters,x,16,z,state.sampler()):nativeBiome;
+                var actual=source.getNoiseBiome(x,16,z,state.sampler());
+                check(actual.equals(expected),"Saved config not applied after repeated reloads");
+                if(!actual.equals(nativeBiome))activeChanges++;
+                if(Boolean.getBoolean("wwoo.audit.worldgen")) {
+                    var running=c.level().getLevel().getChunkSource().getGenerator().getBiomeSource();
+                    check(running.getNoiseBiome(x,16,z,state.sampler()).equals(actual),"Running world biome source differs");
+                }
+            }
+            check(!enabled || configured==null || activeChanges>0,"Active override had no runtime effect");
+            // Mixed scales, concurrent sampling and iteration-order invariance.
+            var random=new Random(9988); var mixedMap=new java.util.HashMap<String,Double>();
+            for(var pair:parameters.values()) mixedMap.put(id(pair.getSecond()),new double[]{0.25,0.5,1,2,8}[random.nextInt(5)]);
+            var mixedConfig=new BiomeSizeConfig(saved.sizeMultiplier(),mixedMap);
+            var mixed=BiomeScaleIndex.create(parameters,mixedConfig);
+            var outputs=new ArrayList<Holder<Biome>>();
+            for(int n=0;n<1024;n++)outputs.add(find(mixed,parameters,n*113-50000,16,n*71-30000,state.sampler()));
+            java.util.stream.IntStream.range(0,1024).parallel().forEach(n -> {
+                check(outputs.get(n).equals(find(mixed,parameters,n*113-50000,16,n*71-30000,state.sampler())),
+                    "Parallel or out-of-order sampling changed biome");
+            });
+            // Missing replacement climates (all overridden, different scales)
+            // must still return a valid biome instead of throwing or leaving gaps.
+            mixedMap.replaceAll((k,v)->v==1.0?4.0:v);
+            var noDefaults=BiomeScaleIndex.create(parameters,new BiomeSizeConfig(1,mixedMap));
+            for(int n=0;n<1024;n++)check(find(noDefaults,parameters,n*97-40000,16,n*59-20000,state.sampler())!=null,"Unfilled mixed-scale gap");
+        } finally {holder.update(saved);}
+        System.out.println("BIOME_SIZE_CHECK spatial_mask_samples="+masks+" transect_runs="+widths+" native_pale_samples="+nativePale+" active_changes="+activeChanges+" seeds=3 parallel_samples=1024");
     }
 }
