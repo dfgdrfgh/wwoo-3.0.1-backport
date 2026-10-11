@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main]
+    branches: [main, swap-wwoo-biome-size-section-2026-10-10]
   workflow_dispatch:
 
 permissions:
