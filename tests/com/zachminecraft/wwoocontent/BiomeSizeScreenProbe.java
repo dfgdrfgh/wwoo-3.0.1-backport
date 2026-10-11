@@ -76,6 +76,13 @@ public final class BiomeSizeScreenProbe {
         check(names.removeFirst().equals("Global Biome Scale"), "Global scale must appear first");
         var sorted = new ArrayList<>(names); sorted.sort(String::compareTo);
         check(names.equals(sorted), "Every biome must appear in one alphabetical list");
+        // Exercise the actual selection response in CI, not just the slider bounds.
+        check(BiomeScaleIndex.biomeBias(1.0)==0.0, "1.0 must leave climate selection unchanged");
+        check(BiomeScaleIndex.biomeBias(2.0)==-187500.0, "2.0 selection response");
+        check(BiomeScaleIndex.biomeBias(4.0)==-937500.0, "4.0 must expand more than 2.0");
+        check(BiomeScaleIndex.biomeBias(8.0)==-3937500.0, "8.0 must expand more than 4.0");
+        check(BiomeScaleIndex.biomeBias(0.5)==187500.0, "0.5 must shrink regions");
+        check(BiomeScaleIndex.biomeBias(0.25)==937500.0, "0.25 must shrink more than 0.5");
         check(fields.get("Global Biome Scale").current()==1.5, "Existing global scale");
         check(fields.get("Pale Garden").current()==2 && fields.get("Forest").current()==0.5, "Independent saved values");
         for (var field : fields.values()) {
