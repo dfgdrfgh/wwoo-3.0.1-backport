@@ -4,12 +4,16 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.zachminecraft.wwoocontent.BiomeSizeConfig;
 import com.zachminecraft.wwoocontent.BiomeSizeScreen;
 import de.cristelknight.cristellib.config.client.extension.ConfigScreenExtension;
+import de.cristelknight.cristellib.config.client.simple.ClientConfigRegistry;
 import de.cristelknight.cristellib.config.client.simple.SimpleConfigScreen;
+import de.cristelknight.wwoo.config.WWOOConfig;
 import de.cristelknight.cristellib.config.simple.ConfigRegistry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
+import java.util.ArrayList;
+import java.util.Comparator;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -23,12 +27,30 @@ public abstract class WWOOConfigScreenMixin {
         throw new AssertionError();
     }
 
-    @Inject(method = "addToBuilder", at = @At("HEAD"), remap = false)
-    private void wwoo$title(ConfigBuilder builder, ConfigEntryBuilder entries, CallbackInfo ci) {
-        if (((ConfigScreenExtension) (Object) this).modId.equals("wwoo")) {
-            builder.setTitle(Component.literal("WWOO Config"));
-            builder.setAlwaysShowTabs(false);
+    @Shadow private <T> void addConfigToCategory(ConfigBuilder builder, ConfigEntryBuilder entries,
+            SimpleConfigScreen screen) {
+        throw new AssertionError();
+    }
+
+    @Inject(method = "addToBuilder", at = @At("HEAD"), cancellable = true, remap = false)
+    private void wwoo$orderedSections(ConfigBuilder builder, ConfigEntryBuilder entries, CallbackInfo ci) {
+        if (!((ConfigScreenExtension) (Object) this).modId.equals("wwoo")) return;
+
+        builder.setTitle(Component.literal("WWOO Config"));
+        builder.setAlwaysShowTabs(false);
+
+        // Cristel Lib stores screens in an unordered set. Sort the display only,
+        // retaining the separate config files and normal save callbacks.
+        var screens = new ArrayList<>(ClientConfigRegistry.getScreens("wwoo"));
+        screens.sort(Comparator.comparingInt(screen -> {
+            if (screen.simpleConfig() == BiomeSizeConfig.class) return 0;
+            if (screen.simpleConfig() == WWOOConfig.class) return 1;
+            return 2;
+        }));
+        for (SimpleConfigScreen screen : screens) {
+            addConfigToCategory(builder, entries, screen);
         }
+        ci.cancel();
     }
 
     @Inject(method = "addConfigToCategory", at = @At("HEAD"), cancellable = true, remap = false)
