@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.feature.*;
@@ -20,6 +21,12 @@ public final class SpawnProbe implements ModInitializer {
             EntityType.Builder.of(Pig::new, MobCategory.CREATURE).build("minecraft:creaking"));
         modded = Registry.register(BuiltInRegistries.ENTITY_TYPE, ResourceLocation.parse("audit:animal"),
             EntityType.Builder.of(Pig::new, MobCategory.CREATURE).build("audit:animal"));
+        try {
+            var register=Class.forName("net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry")
+                .getMethod("register",EntityType.class,AttributeSupplier.Builder.class);
+            register.invoke(null,creaking,Pig.createAttributes());
+            register.invoke(null,modded,Pig.createAttributes());
+        } catch (ReflectiveOperationException e) { throw new IllegalStateException("Test attribute registration failed",e); }
         Registry.register(BuiltInRegistries.FEATURE, ResourceLocation.parse("audit:spawn_probe"), new Probe());
     }
     private static void check(boolean value, String message) {

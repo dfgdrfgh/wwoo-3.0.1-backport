@@ -4,7 +4,7 @@ A test-only entity with the creaking ID checks exemption; it does not simulate a
 No WWOO/VBP content is substituted in the installable mod.
 """
 from pathlib import Path
-import json,os,shutil,subprocess,time,zipfile
+import hashlib,json,os,shutil,subprocess,time,urllib.request,zipfile
 ROOT=Path(__file__).resolve().parent.parent
 JAVA=Path(os.environ['WWOO_JAVA_HOME'])/'bin' if 'WWOO_JAVA_HOME' in os.environ else Path(shutil.which('javac')).resolve().parent
 JAR=ROOT/'wwoo-fabric-1.21.1-3.0.1-backport.jar'
@@ -16,9 +16,13 @@ with zipfile.ZipFile(JAR) as z:
     helpers={n:z.read(n) for n in z.namelist() if n.startswith('com/zachminecraft/wwoocontent/PaleGardenSpawning') or n.startswith('com/zachminecraft/wwoocontent/mixin/PaleGardenSpawnMixins')}
 folder=ROOT/'test-spawning';shutil.rmtree(folder,ignore_errors=True)
 (folder/'mods').mkdir(parents=True)
+api=ROOT/'toolchain/fabric-api-0.116.17+1.21.1.jar'
+if not api.exists():urllib.request.urlretrieve('https://cdn.modrinth.com/data/P7dR8mSH/versions/Mys3P7lK/fabric-api-0.116.17%2B1.21.1.jar',api)
+assert hashlib.sha512(api.read_bytes()).hexdigest()=='98c478217da19181f0e4df3ea6c2da6bdbda271c7544a4aea048513a49b444f1ff5b71dc0df6303017c48e8ff69b7bb6af6179bdf0d0e09ab3c1ee08411857a8'
+shutil.copy2(api,folder/'mods'/api.name)
 classes=folder/'classes';classes.mkdir()
 cp=(ROOT/'compile-classpath.txt').read_text()+os.pathsep+str(ROOT/'port/helpers-named.jar')
-subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),str(ROOT/'tests/com/zachminecraft/wwoocontent/SpawnProbe.java'),str(ROOT/'tests/com/zachminecraft/wwoocontent/mixin/SpawnProbeAttributes.java')],check=True)
+subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),str(ROOT/'tests/com/zachminecraft/wwoocontent/SpawnProbe.java')],check=True)
 raw=folder/'probe-named.jar'
 with zipfile.ZipFile(raw,'w',zipfile.ZIP_DEFLATED) as z:
     for p in classes.rglob('*.class'):z.write(p,p.relative_to(classes))
@@ -31,7 +35,7 @@ with zipfile.ZipFile(folder/'mods/spawn-probe.jar','w',zipfile.ZIP_DEFLATED) as 
     with zipfile.ZipFile(inter) as p:
         for n in p.namelist():z.writestr(n,p.read(n))
     z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo_spawn_probe','version':'1','environment':'server','entrypoints':{'main':['com.zachminecraft.wwoocontent.SpawnProbe']},'mixins':['spawn-probe.mixins.json']}))
-    z.writestr('spawn-probe.mixins.json',json.dumps({'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':MIXINS+['SpawnProbeAttributes'],'injectors':{'defaultRequire':1}}))
+    z.writestr('spawn-probe.mixins.json',json.dumps({'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':MIXINS,'injectors':{'defaultRequire':1}}))
 pack=folder/'world/datapacks/spawning'
 def put(path,value):
     p=pack/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(value))
