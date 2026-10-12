@@ -49,7 +49,7 @@ for name,biome_id in [('pale','pale_garden'),('plains','plains')]:
 (folder/'server.properties').write_text('online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\nmax-tick-time=-1\nlevel-seed=1234567\nlevel-name=world\nspawn-protection=0\n')
 log=folder/'console.log';markers=['WWOO_SPAWN_'+m+'_PASS' for m in ('WORLDGEN','PALE','PLAINS')]
 with log.open('w') as out:
-    p=subprocess.Popen([str(JAVA/'java'),'-Xmx3G','-Dfabric.gameJarPath='+str(ROOT/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(ROOT/'test-runtime/launch-classpath.txt').read_text(),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui'],cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
+    p=subprocess.Popen([str(JAVA/'java'),'-Xmx3G','-Dfabric.gameJarPath='+str(ROOT/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(ROOT/'test-runtime/launch-classpath.txt').read_text()+os.pathsep+str(ROOT/'toolchain/lib/intermediary.jar'),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui'],cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
     try:
         start=time.monotonic();sent=False;stopped=False
         while p.poll() is None:
