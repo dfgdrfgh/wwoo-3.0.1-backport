@@ -55,11 +55,16 @@ log=folder/'console.log';markers=['WWOO_SPAWN_'+m+'_PASS' for m in ('WORLDGEN','
 with log.open('w') as out:
     p=subprocess.Popen([str(JAVA/'java'),'-Xmx3G','-Dfabric.gameJarPath='+str(ROOT/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(ROOT/'test-runtime/launch-classpath.txt').read_text()+os.pathsep+str(ROOT/'toolchain/lib/intermediary.jar'),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui'],cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
     try:
-        start=time.monotonic();sent=False;stopped=False
+        start=time.monotonic();sent=False;stopped=False;next_probe=0
         while p.poll() is None:
             output=log.read_text(errors='replace')
             if 'Done (' in output and not sent:
-                p.stdin.write('gamerule doMobSpawning false\ntime set noon\nexecute in audit:pale run forceload add 0 0\nexecute in audit:plains run forceload add 0 0\nexecute in audit:pale run place feature audit:spawn_probe 0 120 0\nexecute in audit:plains run place feature audit:spawn_probe 0 120 0\n');p.stdin.flush();sent=True
+                p.stdin.write('gamerule doMobSpawning false\ntime set noon\nexecute in audit:pale run forceload add 0 0\nexecute in audit:plains run forceload add 0 0\n');p.stdin.flush();sent=True
+            # Forceload schedules generation; commands must wait for each chunk to become full.
+            if sent and markers[0] in output and time.monotonic()>=next_probe and not stopped:
+                for dimension,marker in [('pale',markers[1]),('plains',markers[2])]:
+                    if marker not in output:p.stdin.write(f'execute in audit:{dimension} run place feature audit:spawn_probe 0 120 0\n')
+                p.stdin.flush();next_probe=time.monotonic()+5
             if all(marker in output for marker in markers) and not stopped:
                 p.stdin.write('stop\n');p.stdin.flush();stopped=True
             if 'WWOO_SPAWN_FAIL' in output or time.monotonic()-start>360:raise RuntimeError('Spawn runtime test failed or timed out')
