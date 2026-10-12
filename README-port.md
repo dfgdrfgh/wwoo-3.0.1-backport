@@ -27,6 +27,10 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 - Plant support overrides run only while their main-pack marker is populated and the relevant support tags exist. Disabling the built-in packs restores ordinary plant checks; deliberate empty support tags remain restrictive.
 - The obsolete 2.6.7 add-on switches and packs are retired to match 3.0.1's pack/config selection. The remove-ores switch remains available.
 
+## Pale Garden spawning
+
+Natural biome spawning, initial animal generation, patrols, and event spawners are blocked in `minecraft:pale_garden`, except for creakings and phantoms. The rule uses the mob’s spawn position and applies to vanilla and modded mobs using the standard spawn lifecycle. WWOO template animals follow the same exception list. Creaking-heart spawning, spawn eggs, commands, breeding, and mob spawners remain allowed. Existing mobs are not removed and can enter the biome. Runtime checks use generation-region biome data without requesting chunks through the backing server world.
+
 ## Validation
 
 See `validation-full.json` for the original broad-validation JAR hash, per-biome saved chunk checks, dependency versions, and runtime assertions. The conversion also checks that every referenced imported template exists and that the requested older biome definitions are retained exactly.
@@ -38,6 +42,8 @@ Build `3.0.1+backport.1.21.1.3` additionally restores 28 dry-foliage overrides l
 Build `3.0.1+backport.1.21.1.4` fixes the removal-pack condition and plant behavior when built-in packs are disabled. Six dedicated-server scenarios check explicit true/false settings, omitted settings, disabled packs, empty support tags, and an inactive marker with empty tag holders. The test probe inspects the effective placements for all eight affected resources in both namespaces. The 12 existing behavior cases are also rerun. See `tests/general-behavior-result.json`.
 
 The noise sampler was compared with the supplied 26.3 runtime over 20,000 samples with no bitwise differences. Dedicated-server integration exercises normal generation, fixed-biome generation, TrueVanillaBackport compatibility, saving, and shutdown. Behavior cases cover optional/nested rules, sequence and overlay placement, vegetation support, moss carpets, template animals, leaf support, and the desert striped-wolf selector.
+
+Build `3.0.1+backport.1.21.1.5` adds the Pale Garden spawning restriction. `tests/pale_garden_spawning.py` runs the exact new release mixin classes on an isolated dedicated server, checking biome boundaries, generation, modded mobs, event spawning, manual spawning, and transient spawn flags. Its test-only creaking ID validates the whitelist; it does not simulate creaking-heart behavior.
 
 Client rendering and a side-by-side visual comparison with 26.3 have not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 
@@ -66,3 +72,4 @@ python3 port/validate.py test-full-validation
 Re-running the optional cross-version noise test also requires Java 25 and the 26.3 runtime libraries. The recorded comparison is included.
 
 The tests create their own local, offline dedicated-server world. Upstream author metadata and the upstream WWOO license are retained in the replacement JAR and both supplied inputs.
+

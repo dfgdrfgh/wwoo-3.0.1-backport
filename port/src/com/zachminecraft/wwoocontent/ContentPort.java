@@ -11,6 +11,7 @@ import net.minecraft.resources.RegistryOps;
 import net.minecraft.tags.TagKey;
 import net.minecraft.nbt.*;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.providers.number.*;
@@ -144,7 +145,7 @@ public final class ContentPort implements ModInitializer {
                     nbt.putInt("TileX",Mth.floor(transformed.x));nbt.putInt("TileY",Mth.floor(transformed.y));nbt.putInt("TileZ",Mth.floor(transformed.z));
                 }
                 var entity=EntityType.create(nbt,c.level().getLevel());
-                entity.ifPresent(e -> { e.moveTo(transformed.x,transformed.y,transformed.z,e.rotate(rotation),e.getXRot());c.level().addFreshEntityWithPassengers(e); });
+                entity.ifPresent(e -> { e.moveTo(transformed.x,transformed.y,transformed.z,e.rotate(rotation),e.getXRot());if (!(e instanceof Mob) || !PaleGardenSpawning.blocked(c.level(),e.blockPosition(),e.getType())) c.level().addFreshEntityWithPassengers(e); });
             }
             return placed || !saved.getList("entities",Tag.TAG_COMPOUND).isEmpty();
         }
@@ -355,3 +356,4 @@ public final class ContentPort implements ModInitializer {
         }
     }
 }
+
