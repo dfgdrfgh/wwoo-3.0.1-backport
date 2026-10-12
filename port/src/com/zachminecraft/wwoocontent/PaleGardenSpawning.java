@@ -33,11 +33,12 @@ public final class PaleGardenSpawning {
     }
 
     public static boolean rejectFreshMob(LevelReader level, Entity entity) {
-        if (!(entity instanceof PendingNaturalSpawn pending) || !pending.wwoo$takeNaturalSpawn()) return false;
+        if (!(entity instanceof PendingNaturalSpawn pending) || !pending.wwoo$isNaturalSpawn()) return false;
         return blocked(level, entity.blockPosition(), entity.getType());
     }
 
     public interface PendingNaturalSpawn {
+        boolean wwoo$isNaturalSpawn();
         /** Consume the transient flag, so an existing mob can later move freely. */
         boolean wwoo$takeNaturalSpawn();
     }

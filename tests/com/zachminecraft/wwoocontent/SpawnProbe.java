@@ -55,7 +55,8 @@ public final class SpawnProbe implements ModInitializer {
                 for (var reason : new MobSpawnType[]{MobSpawnType.NATURAL,MobSpawnType.CHUNK_GENERATION,MobSpawnType.PATROL,MobSpawnType.EVENT}) {
                     var entity = mob(mobType,server,pos,reason);
                     check(server.addFreshEntity(entity) == !pale, "insertion " + type + " " + reason);
-                    check(!((PaleGardenSpawning.PendingNaturalSpawn)entity).wwoo$takeNaturalSpawn(), "flag consumed after insertion");
+                    if (pale) check(!server.addFreshEntity(entity), "rejected mob cannot bypass rule on retry");
+                    else check(!((PaleGardenSpawning.PendingNaturalSpawn)entity).wwoo$isNaturalSpawn(), "flag consumed after successful insertion");
                     entity.discard();
                 }
             }

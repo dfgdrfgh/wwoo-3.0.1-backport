@@ -39,6 +39,8 @@ public final class PaleGardenSpawnMixins {
             wwoo$pendingNaturalSpawn = false;
             return pending;
         }
+
+        @Override public boolean wwoo$isNaturalSpawn() { return wwoo$pendingNaturalSpawn; }
     }
 
     @Mixin(ServerLevel.class)
@@ -48,6 +50,11 @@ public final class PaleGardenSpawnMixins {
         private void wwoo$rejectNaturalMob(Entity entity, CallbackInfoReturnable<Boolean> cir) {
             if (PaleGardenSpawning.rejectFreshMob((ServerLevel)(Object)this, entity)) cir.setReturnValue(false);
         }
+
+        @Inject(method = "method_14175", at = @At("RETURN"), remap = false)
+        private void wwoo$finishInsertion(Entity entity, CallbackInfoReturnable<Boolean> cir) {
+            if (cir.getReturnValue() && entity instanceof PaleGardenSpawning.PendingNaturalSpawn pending) pending.wwoo$takeNaturalSpawn();
+        }
     }
 
     @Mixin(WorldGenRegion.class)
@@ -56,6 +63,11 @@ public final class PaleGardenSpawnMixins {
         @Inject(method = "method_8649", at = @At("HEAD"), cancellable = true, remap = false)
         private void wwoo$rejectGenerationMob(Entity entity, CallbackInfoReturnable<Boolean> cir) {
             if (PaleGardenSpawning.rejectFreshMob((WorldGenRegion)(Object)this, entity)) cir.setReturnValue(false);
+        }
+
+        @Inject(method = "method_8649", at = @At("RETURN"), remap = false)
+        private void wwoo$finishGenerationInsertion(Entity entity, CallbackInfoReturnable<Boolean> cir) {
+            if (cir.getReturnValue() && entity instanceof PaleGardenSpawning.PendingNaturalSpawn pending) pending.wwoo$takeNaturalSpawn();
         }
     }
 }
