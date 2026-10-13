@@ -27,6 +27,10 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 - Plant support overrides run only while their main-pack marker is populated and the relevant support tags exist. Disabling the built-in packs restores ordinary plant checks; deliberate empty support tags remain restrictive.
 - The obsolete 2.6.7 add-on switches and packs are retired to match 3.0.1's pack/config selection. The remove-ores switch remains available.
 
+## Cloud transitions
+
+Cloud colors and opacity blend horizontally between nearby biomes in a horizontal area extending 16 blocks in each direction from the camera (roughly a 32-block-wide transition across a straight boundary). Blending follows the camera’s continuous position, so moving deeper into a biome increases its contribution rather than starting a timer. Biome data is read only from already loaded client chunks; missing neighboring data uses the local biome color. Samples are shared between RGB and alpha rendering, and vanilla daylight/weather shading is preserved. Leaves, terrain generation, and biome placement are unaffected.
+
 ## Pale Garden spawning
 
 Natural biome spawning, initial animal generation, patrols, and event spawners are blocked at the surface of `minecraft:pale_garden`, except for creakings and phantoms. Underground spawning retains the biome’s normal spawn lists and vanilla/mod spawn conditions. Surface means at or above the highest solid ground block in the local column, ignoring leaves and logs; it is not a fixed Y cutoff or a sky-visibility test. The rule uses the mob’s spawn position and applies to vanilla and modded mobs using the standard spawn lifecycle. WWOO template animals follow the same exception list. Creaking-heart spawning, spawn eggs, commands, breeding, and mob spawners remain allowed. Existing mobs are not removed and can enter the biome. Runtime checks use generation-region biome data without requesting chunks through the backing server world.
@@ -47,7 +51,9 @@ Build `3.0.1+backport.1.21.1.5` adds the Pale Garden spawning restriction. `test
 
 Build `3.0.1+backport.1.21.1.6` limits the rule to the surface and restores the original biome spawn lists for underground spawning. Runtime regression checks cover caves, sloped terrain, leaves/logs above the surface, and partial ground blocks, as well as the existing exceptions and manual spawn cases.
 
-Client rendering and a side-by-side visual comparison with 26.3 have not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
+Build `3.0.1+backport.1.21.1.7` adds spatial cloud color/opacity blending. Regression checks exercise continuous camera movement, negative coordinates, diagonal boundaries, constant-biome colors, transparent neighbors, and a bounded sample count.
+
+A side-by-side visual comparison with 26.3 has not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 
 The three inverted cave-disk height ranges from 2.6.7 remain in the preserved older resources. They can log `Empty height range: [-55 absolute--60 absolute]`; they are not conversion or registry errors.
 

@@ -13,9 +13,9 @@ public abstract class CloudColorMixin {
     // Explicit 1.21.1 intermediary selectors: no annotation processor/refmap required.
     @Inject(method="method_23785", at=@At("RETURN"), cancellable=true, remap=false)
     private void wwoo$cloudColor(float partialTick, CallbackInfoReturnable<Vec3> cir) {
-        int color = CloudAttributes.color();
+        var color = CloudAttributes.color();
         var rgb = cir.getReturnValue();
-        cir.setReturnValue(new Vec3(rgb.x * ((color >> 16) & 255) / 255.0,
-            rgb.y * ((color >> 8) & 255) / 255.0, rgb.z * (color & 255) / 255.0));
+        cir.setReturnValue(new Vec3(rgb.x * color.red(), rgb.y * color.green(), rgb.z * color.blue()));
     }
 }
+
