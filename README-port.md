@@ -29,7 +29,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Cloud transitions
 
-Cloud colors and opacity blend horizontally between nearby biomes in a horizontal area extending 16 blocks in each direction from the camera (roughly a 32-block-wide transition across a straight boundary). Nearby samples receive stronger weight so the biome being entered takes on its intended tint sooner. Color is blended independently of opacity, so an opaque white neighbor does not overpower a lower-opacity colored biome. Fully transparent samples affect opacity but do not add a color tint. Blending follows the camera’s continuous position, so moving deeper into a biome increases its contribution rather than starting a timer. Biome data is read only from already loaded client chunks; missing neighboring data uses the local biome color. Samples are shared between RGB and alpha rendering, and vanilla daylight/weather shading is preserved. Leaves, terrain generation, and biome placement are unaffected.
+Entering a biome with a different cloud color or opacity starts a two-second fade to that biome’s exact palette. The fade follows elapsed time and completes even if the player stops moving. Crossing another boundary before it finishes starts a new fade from the currently displayed color. Only the camera’s current biome is sampled; there is no distance-based range or neighboring-biome averaging. Color and opacity blend independently, and vanilla daylight/weather shading is preserved. New worlds and dimension changes initialize to their own palette. Vertex alpha uses a shared render sample, and cloud geometry refreshes as either color or opacity changes.
 
 ## Pale Garden spawning
 
@@ -54,6 +54,8 @@ Build `3.0.1+backport.1.21.1.6` limits the rule to the surface and restores the 
 Build `3.0.1+backport.1.21.1.7` adds spatial cloud color/opacity blending. Regression checks exercise continuous camera movement, negative coordinates, diagonal boundaries, constant-biome colors, transparent neighbors, and a bounded sample count.
 
 Build `3.0.1+backport.1.21.1.8` strengthens nearby biome colors and removes opacity bias from the RGB blend. Boundary regressions check equal spatial color contributions despite different opacity and stronger local-biome tint after moving four and eight blocks across a straight test boundary.
+
+Build `3.0.1+backport.1.21.1.9` replaces spatial blending with a timed biome-entry transition. Tests cover stationary completion, rapid retargeting, reverse crossings, repeated reads, frame-rate independence, exact destination colors/opacity, and world-state reset.
 
 A side-by-side visual comparison with 26.3 has not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 

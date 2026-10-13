@@ -5,7 +5,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.phys.Vec3;
 import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
@@ -17,8 +16,7 @@ public final class CloudAttributes {
     private static final int DEFAULT = 0xccffffff;
     private static final Map<String, Integer> COLORS = load();
     private static WeakReference<ClientLevel> previousLevel = new WeakReference<>(null);
-    private static Vec3 previousPosition;
-    private static long previousTick = Long.MIN_VALUE;
+    private static final CloudBlend TRANSITION = new CloudBlend();
     private static CloudBlend.Color cached = CloudBlend.Color.fromArgb(DEFAULT);
 
     private static Map<String, Integer> load() {
@@ -45,25 +43,21 @@ public final class CloudAttributes {
         var client = Minecraft.getInstance();
         var camera = client.gameRenderer.getMainCamera();
         if (client.level == null || camera.getEntity() == null) {
-            previousLevel.clear(); previousPosition = null; previousTick = Long.MIN_VALUE;
-            return CloudBlend.Color.fromArgb(DEFAULT);
+            previousLevel.clear(); TRANSITION.reset();
+            cached = CloudBlend.Color.fromArgb(DEFAULT);
+            return cached;
         }
         var level = client.level;
-        var pos = camera.getPosition();
-        long tick = level.getGameTime();
-        // RGB and every cloud vertex's alpha share one sample at this camera position.
-        if (previousLevel.get() == level && pos.equals(previousPosition) && previousTick == tick) return cached;
-        int fallback = biomeColor(level.getBiome(camera.getBlockPosition()));
-        int quartY = Math.floorDiv(camera.getBlockPosition().getY(), 4);
-        cached = CloudBlend.sample(pos.x, pos.z, (quartX, quartZ) -> {
-            // Missing neighboring chunks use the local color without requesting any chunks.
-            if (!level.hasChunk(Math.floorDiv(quartX, 4), Math.floorDiv(quartZ, 4))) return fallback;
-            return biomeColor(level.getNoiseBiome(quartX, quartY, quartZ));
-        });
-        if (previousLevel.get() != level) previousLevel = new WeakReference<>(level);
-        previousPosition = pos; previousTick = tick;
+        if (previousLevel.get() != level) {
+            TRANSITION.reset();
+            previousLevel = new WeakReference<>(level);
+        }
+        // Only the biome actually occupied by the camera supplies the target palette.
+        int target = biomeColor(level.getBiome(camera.getBlockPosition()));
+        cached = TRANSITION.update(target, System.nanoTime());
         return cached;
     }
 
-    public static float alpha() { return (float)color().alpha(); }
+    // Cloud vertices share the latest render sample, avoiding a different time per vertex.
+    public static float alpha() { return (float)cached.alpha(); }
 }

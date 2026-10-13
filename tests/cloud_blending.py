@@ -1,4 +1,4 @@
-"""Run regression checks against the exact CloudBlend classes in the released mod."""
+"""Run timed biome-entry regression checks against the exact CloudBlend classes in the released mod."""
 from pathlib import Path
 import os,shutil,subprocess,tempfile,zipfile,json
 ROOT=Path(__file__).resolve().parent.parent

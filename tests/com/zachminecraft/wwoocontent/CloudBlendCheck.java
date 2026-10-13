@@ -1,67 +1,53 @@
 package com.zachminecraft.wwoocontent;
 
-/** Tests the sampler packaged in the release JAR, independently of Minecraft boot. */
+/** Tests the timed transition packaged in the release JAR without Minecraft boot. */
 public final class CloudBlendCheck {
-    private static final CloudBlend.BiomeColors BORDER = (qx,qz) -> qx < 0 ? 0xccff0000 : 0xcc0000ff;
+    private static final int WHITE=0xccffffff, PALE=0x66828282, PURPLE=0x66888899;
     private static void require(boolean value,String message) {
         if (!value) throw new AssertionError(message);
     }
     private static void near(double actual,double expected,String message) {
         require(Math.abs(actual-expected)<1e-12,message+": "+actual+" != "+expected);
     }
+    private static void same(CloudBlend.Color a,CloudBlend.Color b,String message) {
+        near(a.red(),b.red(),message+" red");near(a.green(),b.green(),message+" green");
+        near(a.blue(),b.blue(),message+" blue");near(a.alpha(),b.alpha(),message+" alpha");
+    }
     public static void main(String[] args) {
-        for (int argb : new int[]{0xccffffff,0x66828282,0x11ffffff,0x66888899,0xff123456}) {
-            var expected=CloudBlend.Color.fromArgb(argb);
-            for(double x:new double[]{-30000000.25,-15.99,-4.01,-0.001,0,0.001,4,15.99,30000000.25}) {
-                var actual=CloudBlend.sample(x,x*.25,(qx,qz)->argb);
-                near(actual.red(),expected.red(),"constant red");near(actual.green(),expected.green(),"constant green");
-                near(actual.blue(),expected.blue(),"constant blue");near(actual.alpha(),expected.alpha(),"constant alpha");
+        long start=10_000_000_000L;
+        var white=CloudBlend.Color.fromArgb(WHITE);var pale=CloudBlend.Color.fromArgb(PALE);
+        var blend=new CloudBlend();
+        same(blend.update(WHITE,start),white,"initial palette exact");
+        same(blend.update(PALE,start),white,"entry begins without a snap");
+        var half=blend.update(PALE,start+CloudBlend.DURATION_NANOS/2);
+        near(half.red(),(white.red()+pale.red())/2,"mid-fade RGB independent of opacity");
+        near(half.alpha(),.6,"mid-fade opacity");
+        same(blend.update(PALE,start+CloudBlend.DURATION_NANOS),pale,"stationary fade reaches exact destination");
+        same(blend.update(PALE,start+10*CloudBlend.DURATION_NANOS),pale,"destination stays stable");
+
+        // Reading every frame (or many times per frame) must not restart or accelerate it.
+        for(int fps:new int[]{20,30,60,144,240}) {
+            var timed=new CloudBlend();timed.update(WHITE,start);timed.update(PALE,start);
+            double previous=1;
+            for(int frame=0;frame<fps*2;frame++) {
+                long now=start+(long)(frame*1_000_000_000.0/fps);
+                var current=timed.update(PALE,now);
+                same(timed.update(PALE,now),current,"same-frame reads coherent");
+                require(current.red()<=previous+1e-12,"tint progresses toward destination");previous=current.red();
             }
+            same(timed.update(PALE,start+CloudBlend.DURATION_NANOS),pale,"same duration at every frame rate");
         }
-        var left=CloudBlend.sample(-16,0,BORDER);near(left.red(),1,"inside old biome");near(left.blue(),0,"no distant bleed");
-        var center=CloudBlend.sample(0,0,BORDER);near(center.red(),.5,"boundary old contribution");near(center.blue(),.5,"boundary new contribution");
-        var right=CloudBlend.sample(16,0,BORDER);near(right.red(),0,"fully inside new biome");near(right.blue(),1,"new biome reached");
-        var previous=CloudBlend.sample(-20,0,BORDER);
-        for(int step=1;step<=640;step++) {
-            double x=-20+step/16.0;
-            var current=CloudBlend.sample(x,0,BORDER);
-            require(current.blue()+1e-12>=previous.blue(),"new color increases with depth");
-            require(Math.abs(current.blue()-previous.blue())<.01,"no discontinuity while walking");
-            near(current.alpha(),.8,"constant opacity across boundary");
-            previous=current;
-        }
-        // Sample-window changes and negative quart/chunk boundaries stay continuous.
-        for(int boundary=-10;boundary<=10;boundary++) {
-            double x=boundary*4.0+2;
-            var a=CloudBlend.sample(x-1e-7,-x-1e-7,(qx,qz)->qx+qz<0?0x22888899:0xccffffff);
-            var b=CloudBlend.sample(x+1e-7,-x+1e-7,(qx,qz)->qx+qz<0?0x22888899:0xccffffff);
-            require(Math.abs(a.red()-b.red())<1e-7 && Math.abs(a.alpha()-b.alpha())<1e-7,"continuous diagonal/grid boundary");
-        }
-        // Low-opacity gray must not be diluted by the neighboring opaque white color.
-        CloudBlend.BiomeColors paleBorder=(qx,qz)->qx<0?0xccffffff:0x66828282;
-        var pale=CloudBlend.Color.fromArgb(0x66828282);
-        var equalBorder=CloudBlend.sample(0,0,paleBorder);
-        near(equalBorder.red(),(1+pale.red())/2,"equal spatial colors despite different opacity");
-        near(equalBorder.alpha(),.6,"opacity remains independently blended");
-        var paleAtFour=CloudBlend.sample(4,0,paleBorder);
-        double paleShare=(1-paleAtFour.red())/(1-pale.red());
-        require(paleShare>.75,"new biome has over 75 percent color influence four blocks inside");
-        var paleAtEight=CloudBlend.sample(8,0,paleBorder);
-        require((1-paleAtEight.red())/(1-pale.red())>.95,"new biome color dominates eight blocks inside");
-        var mirrored=CloudBlend.sample(-4,0,(qx,qz)->qx<0?0x66828282:0xccffffff);
-        near(paleAtFour.red(),mirrored.red(),"local-biome emphasis works in either travel direction");
-        var transparent=CloudBlend.sample(0,0,(qx,qz)->qx<0?0xccffffff:0x00000000);
-        near(transparent.red(),1,"no dark fringe from transparent neighbors");near(transparent.alpha(),.4,"opacity blends too");
-        near(CloudBlend.sample(0,0,(qx,qz)->0).alpha(),0,"fully transparent biome");
-        for(double x:new double[]{-17,-16.5,-.01,0,1,2,3,15.5,16}) {
-            int[] calls={0};
-            CloudBlend.sample(x,x,(qx,qz)-> {
-                require(Math.abs(qx*4.0+2-x)<=16 && Math.abs(qz*4.0+2-x)<=16,"bounded sampling window");
-                calls[0]++;return 0xccffffff;
-            });
-            require(calls[0]>0 && calls[0]<=64,"at most 64 biome samples per cached result");
-        }
-        require(CloudBlend.sample(3.25,-.5,BORDER).equals(CloudBlend.sample(3.25,-.5,BORDER)),"position-driven result independent of timing");
-        System.out.println("CLOUD_BLEND_PASS: continuous spatial RGB/opacity, biome interiors, diagonal/negative boundaries, stronger local-biome tint, opacity independence, transparency, and bounded sampling");
+        var redirect=new CloudBlend();redirect.update(WHITE,start);redirect.update(PALE,start);
+        var visible=redirect.update(PALE,start+750_000_000L);
+        same(redirect.update(PURPLE,start+750_000_000L),visible,"retarget from currently visible color");
+        same(redirect.update(PURPLE,start+750_000_000L+CloudBlend.DURATION_NANOS),CloudBlend.Color.fromArgb(PURPLE),"retarget completion");
+        var reverse=new CloudBlend();reverse.update(WHITE,start);reverse.update(PALE,start);
+        var turning=reverse.update(PALE,start+1_000_000_000L);
+        same(reverse.update(WHITE,start+1_000_000_000L),turning,"reverse crossing has no snap");
+        same(reverse.update(WHITE,start+3_000_000_000L),white,"reverse reaches original palette");
+        reverse.reset();same(reverse.update(PALE,start+4_000_000_000L),pale,"new world has no old tint");
+        var transparent=new CloudBlend();transparent.update(WHITE,start);transparent.update(0x00ffffff,start);
+        near(transparent.update(0x00ffffff,start+CloudBlend.DURATION_NANOS).alpha(),0,"exact transparent destination");
+        System.out.println("CLOUD_TRANSITION_PASS: biome-entry fade, stationary completion, retarget/reversal, frame-rate independence, exact palettes and reset");
     }
 }

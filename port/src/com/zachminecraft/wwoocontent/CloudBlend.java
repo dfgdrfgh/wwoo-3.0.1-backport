@@ -1,55 +1,46 @@
 package com.zachminecraft.wwoocontent;
 
-/** Continuous horizontal blending on the biome's four-block sampling grid. */
+/** A time-based transition to the entered biome's exact cloud color and opacity. */
 public final class CloudBlend {
-    public static final double RADIUS = 16.0;
-    private static final double CELL = 4.0;
-    private CloudBlend() {}
-
-    @FunctionalInterface public interface BiomeColors {
-        int colorAt(int quartX, int quartZ);
-    }
+    public static final long DURATION_NANOS = 2_000_000_000L;
+    private Color from;
+    private Color target;
+    private int targetArgb;
+    private long started;
 
     public record Color(double red, double green, double blue, double alpha) {
         public static Color fromArgb(int argb) {
             return new Color(((argb >> 16) & 255) / 255.0, ((argb >> 8) & 255) / 255.0,
                 (argb & 255) / 255.0, (argb >>> 24) / 255.0);
         }
-    }
-
-    public static Color sample(double x, double z, BiomeColors source) {
-        int minX = (int)Math.ceil((x - RADIUS - CELL / 2) / CELL);
-        int maxX = (int)Math.floor((x + RADIUS - CELL / 2) / CELL);
-        int minZ = (int)Math.ceil((z - RADIUS - CELL / 2) / CELL);
-        int maxZ = (int)Math.floor((z + RADIUS - CELL / 2) / CELL);
-        double total = 0, alpha = 0, colorWeight = 0, red = 0, green = 0, blue = 0;
-        for (int qx = minX; qx <= maxX; qx++) {
-            double wx = weight(qx * CELL + CELL / 2 - x);
-            if (wx == 0) continue;
-            for (int qz = minZ; qz <= maxZ; qz++) {
-                double w = wx * weight(qz * CELL + CELL / 2 - z);
-                if (w == 0) continue;
-                var color = Color.fromArgb(source.colorAt(qx, qz));
-                double opacity = w * color.alpha;
-                total += w; alpha += opacity;
-                // Visible biome colors receive their spatial weight, independent of opacity.
-                // Ignore fully invisible colors so a cloud-free neighbor cannot add a dark fringe.
-                if (color.alpha > 0) {
-                    colorWeight += w;
-                    red += w * color.red; green += w * color.green; blue += w * color.blue;
-                }
-            }
+        private Color mix(Color other, double amount) {
+            return new Color(red + (other.red - red) * amount, green + (other.green - green) * amount,
+                blue + (other.blue - blue) * amount, alpha + (other.alpha - alpha) * amount);
         }
-        return colorWeight > 0 ? new Color(red / colorWeight, green / colorWeight, blue / colorWeight, alpha / total)
-            : new Color(1, 1, 1, 0);
     }
 
-    private static double weight(double distance) {
-        double t = distance / RADIUS;
-        if (Math.abs(t) >= 1) return 0;
-        double falloff = 1 - t * t;
-        // Both value and slope reach zero when a sample enters/leaves the window.
-        double squared = falloff * falloff;
-        return squared * squared;
+    public Color update(int argb, long now) {
+        if (target == null) {
+            // New worlds start in their own palette, without carrying another world's color.
+            target = Color.fromArgb(argb); from = target; targetArgb = argb; started = now;
+            return target;
+        }
+        Color current = current(now);
+        if (argb != targetArgb) {
+            // Retarget from what is currently visible, even during an unfinished fade.
+            from = current; target = Color.fromArgb(argb); targetArgb = argb; started = now;
+            return current;
+        }
+        return current;
     }
+
+    private Color current(long now) {
+        if (from.equals(target)) return target;
+        double progress = Math.max(0, Math.min(1, (now - started) / (double)DURATION_NANOS));
+        if (progress == 1) return target;
+        double eased = progress * progress * (3 - 2 * progress);
+        return from.mix(target, eased);
+    }
+
+    public void reset() { from = null; target = null; }
 }
