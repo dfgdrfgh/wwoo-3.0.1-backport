@@ -17,7 +17,6 @@ public final class CloudAttributes {
     private static final Map<String, Integer> COLORS = load();
     private static WeakReference<ClientLevel> previousLevel = new WeakReference<>(null);
     private static final CloudBlend TRANSITION = new CloudBlend();
-    private static CloudBlend.Color cached = CloudBlend.Color.fromArgb(DEFAULT);
 
     private static Map<String, Integer> load() {
         try (var stream = CloudAttributes.class.getResourceAsStream("/data/wwoocontent/biome_attributes.json")) {
@@ -44,8 +43,7 @@ public final class CloudAttributes {
         var camera = client.gameRenderer.getMainCamera();
         if (client.level == null || camera.getEntity() == null) {
             previousLevel.clear(); TRANSITION.reset();
-            cached = CloudBlend.Color.fromArgb(DEFAULT);
-            return cached;
+            return CloudBlend.Color.fromArgb(DEFAULT);
         }
         var level = client.level;
         if (previousLevel.get() != level) {
@@ -54,10 +52,6 @@ public final class CloudAttributes {
         }
         // Only the biome actually occupied by the camera supplies the target palette.
         int target = biomeColor(level.getBiome(camera.getBlockPosition()));
-        cached = TRANSITION.update(target, System.nanoTime());
-        return cached;
+        return TRANSITION.update(target, System.nanoTime());
     }
-
-    // Cloud vertices share the latest render sample, avoiding a different time per vertex.
-    public static float alpha() { return (float)cached.alpha(); }
 }

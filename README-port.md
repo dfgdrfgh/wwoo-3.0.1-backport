@@ -29,7 +29,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Cloud transitions
 
-Entering a biome with a different cloud color or opacity starts a two-second fade to that biome’s exact palette. The fade follows elapsed time and completes even if the player stops moving. Crossing another boundary before it finishes starts a new fade from the currently displayed color. Only the camera’s current biome is sampled; there is no distance-based range or neighboring-biome averaging. Color and opacity blend independently, and vanilla daylight/weather shading is preserved. New worlds and dimension changes initialize to their own palette. Vertex alpha uses a shared render sample, and cloud geometry refreshes as either color or opacity changes.
+Entering a biome with a different cloud color or opacity starts a two-second fade to that biome’s exact palette. The fade follows elapsed time and completes even if the player stops moving. Crossing another boundary before it finishes starts a new fade from the currently displayed color. Only the camera’s current biome is sampled; there is no distance-based range or neighboring-biome averaging. Color and opacity blend independently, and vanilla daylight/weather shading is preserved. New worlds and dimension changes initialize to their own palette. The existing cloud mesh receives an interpolated shader tint at draw time, so white changes through gray shades without rebuilding geometry for each fade step. Both fancy-cloud passes use one frame sample. Shader state is restored after each draw, including exceptions.
 
 ## Pale Garden spawning
 
@@ -56,6 +56,8 @@ Build `3.0.1+backport.1.21.1.7` adds spatial cloud color/opacity blending. Regre
 Build `3.0.1+backport.1.21.1.8` strengthens nearby biome colors and removes opacity bias from the RGB blend. Boundary regressions check equal spatial color contributions despite different opacity and stronger local-biome tint after moving four and eight blocks across a straight test boundary.
 
 Build `3.0.1+backport.1.21.1.9` replaces spatial blending with a timed biome-entry transition. Tests cover stationary completion, rapid retargeting, reverse crossings, repeated reads, frame-rate independence, exact destination colors/opacity, and world-state reset.
+
+Build `3.0.1+backport.1.21.1.10` applies the fade through the cloud shader instead of repeatedly recreating tinted vertex buffers. The client regression loads the release’s exact cloud mixin into Minecraft 1.21.1 through Fabric, invokes its injected draw hook, and checks white-to-gray progression, pass consistency, original draw arguments, opacity scaling, and restoration of the actual RenderSystem shader state. It runs before window creation; it does not replace an in-game visual check or test third-party cloud renderers.
 
 A side-by-side visual comparison with 26.3 has not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 
