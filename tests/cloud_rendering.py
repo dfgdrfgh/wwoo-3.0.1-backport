@@ -4,7 +4,7 @@ The pre-launch probe invokes its transformed draw hook using actual RenderSystem
 shader state. No GPU draw, game assets, substitute Minecraft classes or world required.
 """
 from pathlib import Path
-import concurrent.futures,json,os,platform,shutil,subprocess,urllib.request,zipfile
+import concurrent.futures,hashlib,json,os,platform,shutil,subprocess,urllib.request,zipfile
 
 ROOT=Path(__file__).resolve().parent.parent
 JAVA=Path(os.environ['WWOO_JAVA_HOME'])/'bin' if 'WWOO_JAVA_HOME' in os.environ else Path(shutil.which('javac')).resolve().parent
@@ -14,11 +14,13 @@ folder=ROOT/'test-cloud-rendering';shutil.rmtree(folder,ignore_errors=True)
 with zipfile.ZipFile(JAR) as z:
     config=json.loads(z.read('wwoo-content.client.mixins.json'))
     assert 'CloudRendererMixin' in config['client']
+    assert 'SodiumCloudRendererMixin' in config['client']
     assert not {'CloudColorMixin','CloudRendererAccess'} & set(config['client'])
     helpers={n:z.read(n) for n in z.namelist() if n.startswith((
         'com/zachminecraft/wwoocontent/CloudBlend',
         'com/zachminecraft/wwoocontent/CloudAttributes',
-        'com/zachminecraft/wwoocontent/mixin/CloudRendererMixin'))}
+        'com/zachminecraft/wwoocontent/mixin/CloudRendererMixin',
+        'com/zachminecraft/wwoocontent/mixin/SodiumCloudRendererMixin'))}
     attributes=z.read('data/wwoocontent/biome_attributes.json')
     assert 'com/zachminecraft/wwoocontent/CloudTint.class' not in z.namelist()
     assert not any('CloudRenderProbe' in n for n in z.namelist())
@@ -45,7 +47,8 @@ classes=folder/'classes';classes.mkdir()
 cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),
     (ROOT/'test-runtime/launch-classpath.txt').read_text(),*client_libraries])
 subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),
-    str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudRenderProbe.java')],check=True)
+    str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudRenderProbe.java'),
+    str(ROOT/'tests/com/zachminecraft/wwoocontent/SodiumCloudRenderProbe.java')],check=True)
 raw=folder/'probe-named.jar'
 with zipfile.ZipFile(raw,'w',zipfile.ZIP_DEFLATED) as z:
     for p in classes.rglob('*.class'):z.write(p,p.relative_to(classes))
@@ -55,23 +58,47 @@ for a,b,m,src,dst,mc in [
     (raw,official,ROOT/'client-mojmap.tiny','named','official',ROOT/'minecraft-client-named.jar'),
     (official,inter,ROOT/'intermediary.tiny','official','intermediary',ROOT/'toolchain/client-1.21.1.jar')]:
     subprocess.run([str(JAVA/'java'),'-cp',mcp,'MappingTool','remap',str(a),str(b),str(m),src,dst,str(mc)],check=True)
-with zipfile.ZipFile(folder/'mods/cloud-probe.jar','w',zipfile.ZIP_DEFLATED) as z:
-    for n,v in helpers.items():z.writestr(n,v)
-    with zipfile.ZipFile(inter) as p:
-        for n in p.namelist():z.writestr(n,p.read(n))
-    z.writestr('data/wwoocontent/biome_attributes.json',attributes)
-    z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo_cloud_probe','version':'1',
-        'environment':'client','entrypoints':{'preLaunch':['com.zachminecraft.wwoocontent.CloudRenderProbe']},
-        'mixins':['cloud-probe.mixins.json']}))
-    z.writestr('cloud-probe.mixins.json',json.dumps({'required':True,
-        'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21',
-        'client':['CloudRendererMixin'],'injectors':{'defaultRequire':1}}))
+def fixture(entrypoint):
+    with zipfile.ZipFile(folder/'mods/cloud-probe.jar','w',zipfile.ZIP_DEFLATED) as z:
+        for n,v in helpers.items():z.writestr(n,v)
+        with zipfile.ZipFile(inter) as p:
+            for n in p.namelist():z.writestr(n,p.read(n))
+        z.writestr('data/wwoocontent/biome_attributes.json',attributes)
+        z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo_cloud_probe','version':'1',
+            'environment':'client','entrypoints':{'preLaunch':['com.zachminecraft.wwoocontent.'+entrypoint]},
+            'mixins':['cloud-probe.mixins.json']}))
+        z.writestr('cloud-probe.mixins.json',json.dumps({'required':True,
+            'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21',
+            'client':['CloudRendererMixin','SodiumCloudRendererMixin'],'injectors':{'defaultRequire':1}}))
 launch_cp=os.pathsep.join([(ROOT/'test-runtime/launch-classpath.txt').read_text(),
     str(ROOT/'toolchain/lib/intermediary.jar'),*client_libraries])
-result=subprocess.run([str(JAVA/'java'),'-Xmx2G',
+command=[str(JAVA/'java'),'-Xmx2G','-Dmixin.debug.export=true',
     '-Dfabric.gameJarPath='+str(ROOT/'toolchain/client-1.21.1.jar'),
-    '-cp',launch_cp,'net.fabricmc.loader.impl.launch.knot.KnotClient'],
-    cwd=folder,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=180)
-(folder/'console.log').write_text(result.stdout)
-print(result.stdout[-22000:])
-assert result.returncode==0 and 'CLOUD_RENDER_PASS' in result.stdout,'Client cloud draw regression failed'
+    '-cp',launch_cp,'net.fabricmc.loader.impl.launch.knot.KnotClient']
+def run(command,marker,name):
+    result=subprocess.run(command,cwd=folder,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=180)
+    (folder/(name+'.log')).write_text(result.stdout)
+    print(result.stdout[-22000:])
+    assert result.returncode==0 and marker in result.stdout,name+' cloud draw regression failed'
+fixture('CloudRenderProbe')
+run(command,'CLOUD_RENDER_PASS','vanilla')
+
+# Use the exact renderer versions and hashes from the user's supplied modpack.
+sodium_versions=[
+    ('sodium-fabric-0.8.13+mc1.21.1.jar','https://cdn.modrinth.com/data/AANobbMI/versions/SMxNOGZ6/sodium-fabric-0.8.13%2Bmc1.21.1.jar',
+     '8614a374593698069a80ac74de8cd9c28f3928d16819a0e0d6320b538e823f7e54e8be06d5ea5a9c268beb0e02073209d1f831a02dede851588b972367680853'),
+    ('sodium-extra-fabric-0.9.4+mc1.21.1.jar','https://cdn.modrinth.com/data/PtjYWJkn/versions/YEWu6red/sodium-extra-fabric-0.9.4%2Bmc1.21.1.jar',
+     '824b06ddaa7ab697ff252ee47c6278725fc2ed6eeaaa027c32c0ee8bbb9ab416c23dfdd3c89a2ca7f4618cb106ef55694a6163cd09abc248219d14e9eca3d7d3')]
+for name,url,sha in sodium_versions:
+    path=folder/'mods'/name;urllib.request.urlretrieve(url,path)
+    assert hashlib.sha512(path.read_bytes()).hexdigest()==sha,name+' modpack hash'
+with zipfile.ZipFile(folder/'mods'/sodium_versions[0][0]) as z:
+    for n in z.namelist():
+        if n.startswith('assets/minecraft/shaders/') and not n.endswith('/'):
+            p=folder/'shader-resources'/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(n))
+with zipfile.ZipFile(ROOT/'toolchain/client-1.21.1.jar') as z:
+    for n in z.namelist():
+        if n.startswith('assets/minecraft/shaders/include/') and not n.endswith('/'):
+            p=folder/'shader-resources'/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(n))
+fixture('SodiumCloudRenderProbe')
+run(['xvfb-run','-a',*command],'SODIUM_CLOUD_RENDER_PASS','sodium')
