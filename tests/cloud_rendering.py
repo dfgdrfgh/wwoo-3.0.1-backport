@@ -20,6 +20,12 @@ with zipfile.ZipFile(JAR) as z:
         'com/zachminecraft/wwoocontent/mixin/SodiumCloudRendererMixin',
         'com/zachminecraft/wwoocontent/mixin/CirrusCloudRendererMixin'))}
     attributes=z.read('data/wwoocontent/biome_attributes.json')
+    biome_attributes=json.loads(attributes)
+    opacity_palettes={}
+    for biome in ['forest','pale_garden']:
+        definition=json.loads(z.read('resources/wwoo_main/data/minecraft/worldgen/biome/'+biome+'.json'))
+        cloud=biome_attributes.get('minecraft:'+biome,{}).get('attributes',{}).get('minecraft:visual/cloud_color','#ccffffff')
+        opacity_palettes[biome]={'sky':definition['effects']['sky_color'],'cloud':int(cloud.removeprefix('#'),16)}
     assert 'com/zachminecraft/wwoocontent/CloudTint.class' not in z.namelist()
     assert not any('CloudRenderProbe' in n for n in z.namelist())
 
@@ -64,6 +70,7 @@ def fixture(entrypoint):
         with zipfile.ZipFile(inter) as p:
             for n in p.namelist():z.writestr(n,p.read(n))
         z.writestr('data/wwoocontent/biome_attributes.json',attributes)
+        z.writestr('cloud-probe-palettes.json',json.dumps(opacity_palettes))
         z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo_cloud_probe','version':'1',
             'environment':'client','entrypoints':{'preLaunch':['com.zachminecraft.wwoocontent.'+entrypoint]},
             'mixins':['cloud-probe.mixins.json']}))
@@ -81,6 +88,7 @@ def run(command,marker,name):
     print(result.stdout[-22000:])
     assert result.returncode==0 and marker in result.stdout,name+' cloud draw regression failed'
     if name=='vanilla':assert 'CLOUD_SKY_BLEND_PASS' in result.stdout
+    if name=='cirrus':assert 'CIRRUS_OPACITY_COMPOSITE_PASS' in result.stdout
 fixture('CloudRenderProbe')
 run(command,'CLOUD_RENDER_PASS','vanilla')
 
