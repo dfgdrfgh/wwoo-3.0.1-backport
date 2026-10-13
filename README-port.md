@@ -6,8 +6,6 @@ Replacement WWOO JAR using the supplied 3.0.1 rewrite as its base. The supplied 
 
 Remove the previous WWOO JAR and install `wwoo-fabric-1.21.1-3.0.1-backport.jar`. Keep your patched TrueVanillaBackport Fabric JAR installed. This build requires Minecraft 1.21.1, Java 21 or newer, Fabric Loader, Fabric API, and Cristel Lib.
 
-During the temporary Cirrus investigation, the normal `WWOO-3.0.1-backport-Fabric-1.21.1` Actions download includes **both** the WWOO JAR and `wwoo-cloud-diagnostics-fabric-1.21.1.jar`. Install both JARs for diagnostics with Cirrus 1.4.1 and Fabric Loader 0.19.2 or newer. Replace any older diagnostic JAR. The capture key appears under Controls → WWOO Cloud Diagnostics; `/wwoocloud capture` starts/stops recording and `/wwoocloud status` confirms the diagnostic is loaded. Remove the diagnostic JAR after testing. The separate diagnostic artifact remains available for updating only the add-on.
-
 Original broad validation: Fabric Loader 0.18.5, Fabric API 0.116.17+1.21.1, Cristel Lib 3.1.7, and TrueVanillaBackport 1.2.0.2638.9. Compatibility with unpatched upstream VanillaBackport has not been established. No changes were made to the 1.20.1 version.
 
 Use a new test world to inspect the rewrite. Worldgen changes affect newly generated chunks.
