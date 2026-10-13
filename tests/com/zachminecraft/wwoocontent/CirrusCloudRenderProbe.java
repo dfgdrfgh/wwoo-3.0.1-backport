@@ -309,7 +309,8 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
 
     private static void checkLiveDiagnostic(ShaderInstance shader,Class<?> rendererType,ByteBuffer pixel) throws Exception {
         // All three add-on mixins must apply to the actual 1.21.1 client and Cirrus classes.
-        require(Arrays.stream(rendererType.getDeclaredMethods()).filter(m->m.getName().contains("wwoo_diag$measureCloudDraw")).count()==1,"one applied diagnostic color draw hook");
+        require(Arrays.stream(rendererType.getDeclaredMethods()).filter(m->m.getName().contains("wwoo_diag$measureCloudDraw")
+            && !m.getName().contains("lambda$") && m.getParameterCount()==5).count()==1,"one applied diagnostic color draw hook");
         require(Arrays.stream(Minecraft.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$tick")),"F8 tick hook applied");
         require(Arrays.stream(Class.forName("net.minecraft.client.gui.Gui").getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$hud")),"HUD hook applied");
         var exported=new ClassNode();new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class").resolve(rendererType.getName().replace('.','/')+".class"))).accept(exported,0);
