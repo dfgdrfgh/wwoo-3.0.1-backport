@@ -112,6 +112,10 @@ with zipfile.ZipFile(folder/'mods/cirrus-fabric-1.21.1-1.4.1.jar') as z:
     for n in z.namelist():
         if n.startswith('assets/cirrus/shaders/') and not n.endswith('/'):
             p=folder/'shader-resources'/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(n))
+with zipfile.ZipFile(folder/'mods/polytone-1.21-5.1.2-fabric.jar') as z:
+    for n in z.namelist():
+        if n.startswith('assets/polytone/shaders/') and not n.endswith('/'):
+            p=folder/'shader-resources'/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(n))
 (folder/'config').mkdir(exist_ok=True)
 shutil.copyfile(ROOT/'tests/fixtures/cirrus-client.json',folder/'config/cirrus-client.json')
 # Match the pack's loader; Cirrus requires >=0.19.2. Leave the earlier optional-mod cases on 0.18.5.

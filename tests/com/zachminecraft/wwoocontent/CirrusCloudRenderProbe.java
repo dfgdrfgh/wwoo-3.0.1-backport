@@ -13,9 +13,10 @@ import java.io.File;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
-import net.minecraft.server.packs.VanillaPackResourcesBuilder;
+import net.minecraft.server.packs.PathPackResources;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.repository.PackSource;
-import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ReloadableResourceManager;
 import net.minecraft.server.packs.resources.ResourceProvider;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -38,6 +39,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /** Checks the actual transformed Cirrus renderer and its shader with the pack's layer/time settings. */
 public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
@@ -131,11 +134,14 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
         GLFW.glfwWindowHint(GLFW.GLFW_ALPHA_BITS,8);
         long window=GLFW.glfwCreateWindow(32,32,"WWOO Cirrus shader check",0,0);
         require(window!=0,"create OpenGL window");GLFW.glfwMakeContextCurrent(window);GL.createCapabilities();
-        var pack=new VanillaPackResourcesBuilder().build(new PackLocationInfo("cloud-check",Component.literal("Cloud check"),PackSource.BUILT_IN,Optional.empty()));
-        ResourceProvider resources=id -> {
-            Path path=Path.of("shader-resources/assets").resolve(id.getNamespace()).resolve(id.getPath());
-            return Files.exists(path) ? Optional.of(new Resource(pack,() -> Files.newInputStream(path))) : Optional.empty();
-        };
+        // Polytone checks includes through the client resource manager, so use the same actual packs there.
+        var gameResources=new ReloadableResourceManager(PackType.CLIENT_RESOURCES);
+        var pack=new PathPackResources(new PackLocationInfo("cloud-check",Component.literal("Cloud check"),PackSource.BUILT_IN,Optional.empty()),Path.of("shader-resources"));
+        var resourceField=Arrays.stream(Minecraft.class.getDeclaredFields()).filter(f ->
+            f.getType()==ReloadableResourceManager.class).findFirst().orElseThrow();
+        resourceField.setAccessible(true);resourceField.set(client,gameResources);
+        gameResources.createReload(Runnable::run,Runnable::run,CompletableFuture.completedFuture(null),List.of(pack)).done().join();
+        ResourceProvider resources=gameResources;
         // Fabric uses this subclass to load namespaced Cirrus shaders unchanged.
         try(var shader=(ShaderInstance)Class.forName("net.fabricmc.fabric.impl.client.rendering.FabricShaderProgram")
                 .getConstructor(ResourceProvider.class,ResourceLocation.class,VertexFormat.class)
@@ -199,7 +205,7 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
             require(GL11.glGetError()==GL11.GL_NO_ERROR,"Cirrus checks have no GL errors");
             MemoryUtil.memFree(pixel);GL15.glDeleteBuffers(vbo);GL30.glDeleteVertexArrays(vao);GL11.glDeleteTextures(texture);
         } finally {
-            GLFW.glfwDestroyWindow(window);GLFW.glfwTerminate();
+            gameResources.close();GLFW.glfwDestroyWindow(window);GLFW.glfwTerminate();
         }
     }
 }
