@@ -6,6 +6,8 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
 import net.minecraft.server.packs.VanillaPackResourcesBuilder;
@@ -59,6 +61,8 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
         }
     }
     private static void check() throws Exception {
+        // Polytone's shader processor codecs use built-in registries, as in a normal client startup.
+        SharedConstants.tryDetectVersion();Bootstrap.bootStrap();
         Class<?> type=Class.forName("com.jvn.cirrus.client.CirrusCloudRenderer");
         var hooks=Arrays.stream(type.getDeclaredMethods()).filter(m -> m.getName().contains("wwoo$tintCirrusClouds")
             && m.getParameterCount()==1 && m.getParameterTypes()[0]==Vec3.class).toList();
