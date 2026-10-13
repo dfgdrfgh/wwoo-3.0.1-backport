@@ -7,6 +7,9 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.SharedConstants;
+import net.minecraft.client.Minecraft;
+import java.lang.reflect.Modifier;
+import java.io.File;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackLocationInfo;
@@ -63,6 +66,14 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
     private static void check() throws Exception {
         // Polytone's shader processor codecs use built-in registries, as in a normal client startup.
         SharedConstants.tryDetectVersion();Bootstrap.bootStrap();
+        // Supply Polytone's config-path context without starting the game loop or replacing any MC classes.
+        Object client=unconstructed(Minecraft.class);
+        var instance=Arrays.stream(Minecraft.class.getDeclaredFields()).filter(f ->
+            f.getType()==Minecraft.class && Modifier.isStatic(f.getModifiers())).findFirst().orElseThrow();
+        var directory=Arrays.stream(Minecraft.class.getDeclaredFields()).filter(f ->
+            f.getType()==File.class && !Modifier.isStatic(f.getModifiers())).findFirst().orElseThrow();
+        directory.setAccessible(true);directory.set(client,Path.of(".").toFile());
+        instance.setAccessible(true);instance.set(null,client);
         Class<?> type=Class.forName("com.jvn.cirrus.client.CirrusCloudRenderer");
         var hooks=Arrays.stream(type.getDeclaredMethods()).filter(m -> m.getName().contains("wwoo$tintCirrusClouds")
             && m.getParameterCount()==1 && m.getParameterTypes()[0]==Vec3.class).toList();
