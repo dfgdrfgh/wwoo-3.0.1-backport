@@ -11,7 +11,7 @@ public final class CloudBlendCheck {
     }
     private static void same(CloudBlend.Color a,CloudBlend.Color b,String message) {
         near(a.red(),b.red(),message+" red");near(a.green(),b.green(),message+" green");
-        near(a.blue(),b.blue(),message+" blue");near(a.alpha(),b.alpha(),message+" alpha");
+        near(a.blue(),b.blue(),message+" blue");
     }
     public static void main(String[] args) {
         long start=10_000_000_000L;
@@ -21,7 +21,6 @@ public final class CloudBlendCheck {
         same(blend.update(PALE,start),white,"entry begins without a snap");
         var half=blend.update(PALE,start+CloudBlend.DURATION_NANOS/2);
         near(half.red(),(white.red()+pale.red())/2,"mid-fade RGB independent of opacity");
-        near(half.alpha(),.6,"mid-fade opacity");
         same(blend.update(PALE,start+CloudBlend.DURATION_NANOS),pale,"stationary fade reaches exact destination");
         same(blend.update(PALE,start+10*CloudBlend.DURATION_NANOS),pale,"destination stays stable");
 
@@ -46,8 +45,28 @@ public final class CloudBlendCheck {
         same(reverse.update(WHITE,start+1_000_000_000L),turning,"reverse crossing has no snap");
         same(reverse.update(WHITE,start+3_000_000_000L),white,"reverse reaches original palette");
         reverse.reset();same(reverse.update(PALE,start+4_000_000_000L),pale,"new world has no old tint");
-        var transparent=new CloudBlend();transparent.update(WHITE,start);transparent.update(0x00ffffff,start);
-        near(transparent.update(0x00ffffff,start+CloudBlend.DURATION_NANOS).alpha(),0,"exact transparent destination");
-        System.out.println("CLOUD_TRANSITION_PASS: biome-entry fade, stationary completion, retarget/reversal, frame-rate independence, exact palettes and reset");
+        var opacityOnly=new CloudBlend();opacityOnly.update(WHITE,start);
+        same(opacityOnly.update(0x11ffffff,start+CloudBlend.DURATION_NANOS/2),white,"same RGB biome keeps its color");
+        var opacityDuringFade=new CloudBlend();opacityDuringFade.update(WHITE,start);opacityDuringFade.update(PALE,start);
+        same(opacityDuringFade.update(0x11828282,start+CloudBlend.DURATION_NANOS/2),half,"alpha-only boundary keeps current RGB");
+        same(opacityDuringFade.update(0x11828282,start+CloudBlend.DURATION_NANOS),pale,"alpha-only boundary does not restart fade");
+
+        // Every actual biome palette pair follows its own RGB path, with no white waypoint.
+        for(String source:args) for(String destination:args) {
+            int a=Integer.parseUnsignedInt(source,16),b=Integer.parseUnsignedInt(destination,16);
+            var ca=CloudBlend.Color.fromArgb(a);var cb=CloudBlend.Color.fromArgb(b);
+            var pair=new CloudBlend();pair.update(a,start);
+            same(pair.update(b,start),ca,"entry starts with source biome color");
+            for(int frame=0;frame<=120;frame++) {
+                double progress=frame/120.0;double eased=progress*progress*(3-2*progress);
+                var current=pair.update(b,start+frame*CloudBlend.DURATION_NANOS/120);
+                // Nanosecond rounding of progress is bounded by one nanosecond.
+                require(Math.abs(current.red()-(ca.red()+(cb.red()-ca.red())*eased))<1e-9,"direct biome red path");
+                require(Math.abs(current.green()-(ca.green()+(cb.green()-ca.green())*eased))<1e-9,"direct biome green path");
+                require(Math.abs(current.blue()-(ca.blue()+(cb.blue()-ca.blue())*eased))<1e-9,"direct biome blue path");
+            }
+            same(pair.update(b,start+CloudBlend.DURATION_NANOS),cb,"destination biome RGB exact");
+        }
+        System.out.println("CLOUD_TRANSITION_PASS: direct RGB paths for "+args.length*args.length+" actual biome palette pairs, no opacity restart, stationary completion, retarget/reversal, frame-rate independence and reset");
     }
 }

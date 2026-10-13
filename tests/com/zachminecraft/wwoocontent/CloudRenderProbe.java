@@ -19,7 +19,7 @@ public final class CloudRenderProbe implements PreLaunchEntrypoint {
     @Override public void onPreLaunch() {
         try {
             check();
-            System.out.println("CLOUD_RENDER_PASS: release mixin applied to real client, white-to-gray tint, coherent passes, draw arguments and shader-state restoration");
+            System.out.println("CLOUD_RENDER_PASS: real client hook, direct biome RGB transitions, constant opacity, coherent passes, draw arguments and shader-state restoration");
             System.exit(0);
         } catch (Throwable failure) {
             failure.printStackTrace();
@@ -46,37 +46,43 @@ public final class CloudRenderProbe implements PreLaunchEntrypoint {
         RenderSystem.setShaderColor(originalState[0], originalState[1], originalState[2], originalState[3]);
         var modelView = new Matrix4f(); var projection = new Matrix4f();
         long start = 10_000_000_000L;
-        var blend = new CloudBlend();
-        blend.update(0xccffffff, start); blend.update(0x66828282, start);
-        double previous = 1;
-        for (int frame = 0; frame <= 120; frame++) {
-            var color = blend.update(0x66828282, start + frame * CloudBlend.DURATION_NANOS / 120);
-            frameColor.set(renderer, color);
-            float[][] passes = new float[2][];
-            for (int pass = 0; pass < 2; pass++) {
-                final int index = pass;
-                int[] calls = {0};
-                Operation<Void> draw = args -> {
-                    calls[0]++;
-                    require(args.length == 4 && args[0] == null && args[1] == modelView
-                        && args[2] == projection && args[3] == null, "original draw arguments preserved");
-                    passes[index] = RenderSystem.getShaderColor().clone();
-                    return null;
-                };
-                hook.invoke(renderer, null, modelView, projection, null, draw);
-                require(calls[0] == 1, "each pass invokes its original draw once");
-                require(Arrays.equals(RenderSystem.getShaderColor(), originalState), "no tint leaks into later rendering");
+        for (int[] pair : new int[][]{{0xccffffff,0x66828282},{0x66888899,0x66828282},
+                                     {0x66828282,0x66888899},{0xccffffff,0x11ffffff}}) {
+            var blend = new CloudBlend();
+            blend.update(pair[0], start); blend.update(pair[1], start);
+            var source = CloudBlend.Color.fromArgb(pair[0]); var target = CloudBlend.Color.fromArgb(pair[1]);
+            for (int frame = 0; frame <= 120; frame++) {
+                var color = blend.update(pair[1], start + frame * CloudBlend.DURATION_NANOS / 120);
+                frameColor.set(renderer, color);
+                float[][] passes = new float[2][];
+                for (int pass = 0; pass < 2; pass++) {
+                    final int index = pass;
+                    int[] calls = {0};
+                    Operation<Void> draw = args -> {
+                        calls[0]++;
+                        require(args.length == 4 && args[0] == null && args[1] == modelView
+                            && args[2] == projection && args[3] == null, "original draw arguments preserved");
+                        passes[index] = RenderSystem.getShaderColor().clone();
+                        return null;
+                    };
+                    hook.invoke(renderer, null, modelView, projection, null, draw);
+                    require(calls[0] == 1, "each pass invokes its original draw once");
+                    require(Arrays.equals(RenderSystem.getShaderColor(), originalState), "no tint leaks into later rendering");
+                }
+                require(Arrays.equals(passes[0], passes[1]), "depth and color passes have identical tint");
+                near(passes[0][0], originalState[0] * color.red(), "red uniform");
+                near(passes[0][1], originalState[1] * color.green(), "green uniform");
+                near(passes[0][2], originalState[2] * color.blue(), "blue uniform");
+                require(passes[0][3] == originalState[3], "cloud opacity stays constant throughout transition");
+                double[] rgb = {passes[0][0]/originalState[0],passes[0][1]/originalState[1],passes[0][2]/originalState[2]};
+                double[] from = {source.red(),source.green(),source.blue()}, to = {target.red(),target.green(),target.blue()};
+                for(int channel=0;channel<3;channel++)
+                    require(rgb[channel] >= Math.min(from[channel],to[channel])-2e-7
+                        && rgb[channel] <= Math.max(from[channel],to[channel])+2e-7, "RGB stays between the two biome colors");
+                if(frame==120) for(int channel=0;channel<3;channel++)
+                    near(rgb[channel],to[channel],"rendered destination biome color exact");
             }
-            require(Arrays.equals(passes[0], passes[1]), "depth and color passes have identical tint");
-            near(passes[0][0], originalState[0] * color.red(), "red uniform");
-            near(passes[0][1], originalState[1] * color.green(), "green uniform");
-            near(passes[0][2], originalState[2] * color.blue(), "blue uniform");
-            near(.8 * passes[0][3], originalState[3] * color.alpha(), "vanilla vertex alpha scaled exactly once");
-            double red = passes[0][0] / originalState[0];
-            require(red <= previous + 2e-7 && red >= 130.0 / 255 - 2e-7, "white dims toward gray without a brightness flash");
-            previous = red;
         }
-        near(previous, 130.0 / 255, "exact destination gray");
         RuntimeException sentinel = new RuntimeException("test draw failure");
         Operation<Void> fail = args -> { throw sentinel; };
         try {

@@ -11,7 +11,7 @@ public final class CloudTint {
         float[] previous = RenderSystem.getShaderColor().clone();
         RenderSystem.setShaderColor(previous[0] * (float)color.red(),
             previous[1] * (float)color.green(), previous[2] * (float)color.blue(),
-            previous[3] * (float)(color.alpha() / 0.8));
+            previous[3]);
         try {
             draw.run();
         } finally {
