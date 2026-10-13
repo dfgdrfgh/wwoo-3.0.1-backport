@@ -49,7 +49,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
     client_libraries=list(pool.map(download,artifacts))
 
 classes=folder/'classes';classes.mkdir()
-cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),str(ROOT/'diagnostics/build/diagnostic-named.jar'),
+cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),str(ROOT/'diagnostics/build/diagnostic-named.jar'),str(ROOT/'diagnostics/build/fabric-api-named.jar'),
     (ROOT/'test-runtime/launch-classpath.txt').read_text(),*client_libraries])
 subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),
     str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudRenderProbe.java'),

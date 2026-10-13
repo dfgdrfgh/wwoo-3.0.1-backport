@@ -8,7 +8,14 @@ import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.multiplayer.ClientLevel;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.brigadier.CommandDispatcher;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import java.lang.reflect.Modifier;
 import java.io.File;
 import net.minecraft.server.Bootstrap;
@@ -28,6 +35,7 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL14;
 import com.google.gson.JsonParser;
 import com.zachminecraft.wwoo.diagnostics.CloudDiagnostic;
+import com.zachminecraft.wwoo.diagnostics.DiagnosticsClient;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Field;
@@ -309,11 +317,10 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
     }
 
     private static void checkLiveDiagnostic(ShaderInstance shader,Class<?> rendererType,ByteBuffer pixel) throws Exception {
-        // All three add-on mixins must apply to the actual 1.21.1 client and Cirrus classes.
+        // Only the rendering measurement needs a custom mixin; controls use Fabric events.
         require(Arrays.stream(rendererType.getDeclaredMethods()).filter(m->m.getName().contains("wwoo_diag$measureCloudDraw")
             && !m.getName().contains("lambda$") && m.getParameterCount()==5).count()==1,"one applied diagnostic color draw hook");
-        require(Arrays.stream(Minecraft.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$tick")),"F8 tick hook applied");
-        require(Arrays.stream(Gui.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$hud")),"HUD hook applied");
+        checkDiagnosticControls();
         var exported=new ClassNode();new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class").resolve(rendererType.getName().replace('.','/')+".class"))).accept(exported,0);
         var draw=exported.methods.stream().filter(m->m.name.equals("drawLayer")).findFirst().orElseThrow();
         int wrapped=0,untouched=0;
@@ -361,7 +368,55 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
             require(Math.abs(Double.parseDouble(values[columns.indexOf("after_r")])-expected[0])<.01,"visible frame color logged");
         }
         GL11.glDisable(GL11.GL_BLEND);GL11.glDisable(GL11.GL_DEPTH_TEST);GL11.glDisable(GL11.GL_SCISSOR_TEST);
-        System.out.println("CLOUD_DIAGNOSTIC_PASS: actual client/Cirrus hooks, Fast style label, real post-shader alpha CSV, offscreen replay, unchanged visible pixels and restored GL/readback state");
+        require(CloudDiagnostic.status().contains("rows: 32, cloud points: 32"),"status reports actual recorded samples");
+        System.out.println("CLOUD_DIAGNOSTIC_PASS: standard Fabric controls, actual Cirrus hook, Fast style label, real post-shader alpha CSV, offscreen replay, unchanged visible pixels and restored GL/readback state");
+    }
+
+    private static void checkDiagnosticControls() throws Exception {
+        new DiagnosticsClient().onInitializeClient();
+        KeyMapping mapping=DiagnosticsClient.captureKey();
+        require(mapping!=null&&mapping.getCategory().equals("key.categories.wwoo_cloud_diagnostics"),"capture key registered in Controls");
+        var client=Minecraft.getInstance();
+        ClientLevel oldLevel=client.level;client.level=(ClientLevel)unconstructed(ClientLevel.class);
+        var bound=KeyBindingHelper.getBoundKeyOf(mapping);
+        try {
+            // A tap completely between ticks must be retained after release.
+            KeyMapping.click(bound);KeyMapping.set(bound,false);
+            ClientTickEvents.END_CLIENT_TICK.invoker().onEndTick(client);
+            require(CloudDiagnostic.active(),"queued released F8 press starts capture through actual Fabric event");
+            Path keyCapture=CloudDiagnostic.output();
+            ClientTickEvents.END_CLIENT_TICK.invoker().onEndTick(client);
+            require(CloudDiagnostic.active(),"next tick does not retoggle a consumed press");
+            KeyMapping.click(bound);KeyMapping.set(bound,false);
+            ClientTickEvents.END_CLIENT_TICK.invoker().onEndTick(client);
+            require(!CloudDiagnostic.active()&&Files.exists(keyCapture),"second key press stops capture and saves CSV");
+            // Remapping in Controls changes the key used by the input event path.
+            mapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F9));KeyMapping.resetMapping();
+            KeyMapping.click(KeyBindingHelper.getBoundKeyOf(mapping));KeyMapping.set(KeyBindingHelper.getBoundKeyOf(mapping),false);
+            ClientTickEvents.END_CLIENT_TICK.invoker().onEndTick(client);
+            require(CloudDiagnostic.active(),"remapped F9 starts capture");
+            CloudDiagnostic.stop("key test saved");
+            mapping.setKey(bound);KeyMapping.resetMapping();
+            var feedback=new java.util.ArrayList<String>();
+            var source=(FabricClientCommandSource)java.lang.reflect.Proxy.newProxyInstance(FabricClientCommandSource.class.getClassLoader(),
+                new Class<?>[]{FabricClientCommandSource.class},(proxy,method,args)->switch(method.getName()) {
+                    case "getClient"->client;
+                    case "sendFeedback","sendError"->{feedback.add(((Component)args[0]).getString());yield null;}
+                    case "toString"->"Diagnostic test source";
+                    default->null;
+                });
+            var dispatcher=new CommandDispatcher<FabricClientCommandSource>();
+            ClientCommandRegistrationCallback.EVENT.invoker().register(dispatcher,null);
+            require(dispatcher.execute("wwoocloud capture",source)==1&&CloudDiagnostic.active(),"registered client command starts capture");
+            require(dispatcher.execute("wwoocloud status",source)==1&&feedback.getLast().contains("recording"),"status command reports capture state");
+            require(dispatcher.execute("wwoocloud capture",source)==1&&!CloudDiagnostic.active(),"client command stops capture");
+            client.level=null;
+            require(dispatcher.execute("wwoocloud capture",source)==0&&!CloudDiagnostic.active(),"command requires an active world");
+            System.out.println("CLOUD_DIAGNOSTIC_CONTROLS_PASS: registered F8, press/release between ticks, one toggle per tap, Controls remap to F9, real client capture/status commands and world guard");
+        } finally {
+            if(CloudDiagnostic.active())CloudDiagnostic.stop("test cleanup");
+            mapping.setKey(bound);KeyMapping.resetMapping();client.level=oldLevel;
+        }
     }
 
 }

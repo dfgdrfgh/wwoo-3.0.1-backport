@@ -1,6 +1,5 @@
 package com.zachminecraft.wwoo.diagnostics;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.zachminecraft.wwoocontent.CloudAttributes;
 import com.zachminecraft.wwoocontent.CloudBlend;
@@ -9,7 +8,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
 import java.io.BufferedWriter;
@@ -32,8 +30,8 @@ public final class CloudDiagnostic {
     private static final long INTERVAL=500_000_000L, DURATION=60_000_000_000L;
     private static BufferedWriter writer;
     private static Path file;
-    private static long started,nextSample,sample;
-    private static boolean keyDown,captureFrame;
+    private static long started,nextSample,sample,rows,cloudPoints;
+    private static boolean captureFrame;
     private static Scene scene;
     private static String notice="",layer="unknown",style="unknown";
     private static final Map<String,String> hud=new LinkedHashMap<>();
@@ -44,17 +42,19 @@ public final class CloudDiagnostic {
     private CloudDiagnostic() {}
 
     public static void tick(Minecraft client) {
-        boolean down=InputConstants.isKeyDown(client.getWindow().getWindow(),GLFW.GLFW_KEY_F8);
-        if(down&&!keyDown&&client.level!=null&&client.screen==null) {
-            if(active())stop("Saved capture");else try {start(client.gameDirectory.toPath());}
-            catch(IOException error) {notice="Capture could not start: "+error.getMessage();LOG.error(notice,error);}
-            client.gui.getChat().addMessage(Component.literal("[Cloud diagnostic] "+notice));
-        }
-        keyDown=down;
         if(active()&&(client.level==null||System.nanoTime()-started>=DURATION)) {
             stop("Saved capture");
             if(client.gui!=null)client.gui.getChat().addMessage(Component.literal("[Cloud diagnostic] "+notice));
         }
+    }
+    public static String toggle(Path directory) {
+        if(active())stop("Saved capture");else try {start(directory);}
+        catch(IOException error) {notice="Capture could not start: "+error.getMessage();LOG.error(notice,error);}
+        return notice;
+    }
+    public static String status() {
+        return "Cloud diagnostic 0.2: "+(active()?"recording":"idle")+" | frames: "+sample+", rows: "+rows+
+            ", cloud points: "+cloudPoints+(file==null?"":" | logs/"+file.getFileName());
     }
     public static void start(Path directory) throws IOException {
         if(active())stop("Saved capture");
@@ -62,8 +62,8 @@ public final class CloudDiagnostic {
         file=logs.resolve("wwoo-cloud-diagnostics-"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))+".csv");
         writer=Files.newBufferedWriter(file);
         writer.write("sample,elapsed_ms,layer,style,dimension,biome,camera_x,camera_y,camera_z,yaw,pitch,tint_r,tint_g,tint_b,sky_r,sky_g,sky_b,shader_r,shader_g,shader_b,input_alpha,time_opacity,sun_weight,rain,thunder,lightning,fog_start,fog_end,blend_enabled,blend_src_rgb,blend_dst_rgb,blend_src_alpha,blend_dst_alpha,depth_test,depth_write,screen_x,screen_y,covered,fragment_r,fragment_g,fragment_b,fragment_alpha,before_r,before_g,before_b,after_r,after_g,after_b\n");
-        writer.flush();started=System.nanoTime();nextSample=0;sample=0;captureFrame=false;hud.clear();
-        notice="Recording locally; F8 stops. "+file.getFileName();
+        writer.flush();started=System.nanoTime();nextSample=0;sample=rows=cloudPoints=0;captureFrame=false;scene=null;hud.clear();
+        notice="Recording locally; capture key or /wwoocloud capture stops. "+file.getFileName();
         LOG.info("{}",notice);
     }
     public static boolean active() {return writer!=null;}
@@ -102,7 +102,7 @@ public final class CloudDiagnostic {
     public static void drawHud(GuiGraphics graphics) {
         if(!active())return;
         var client=Minecraft.getInstance();
-        graphics.drawString(client.font,String.format(Locale.ROOT,"CLOUD CAPTURE %.1fs / 60s | F8 stop",(System.nanoTime()-started)/1e9),8,8,0xffe080,true);
+        graphics.drawString(client.font,String.format(Locale.ROOT,"CLOUD CAPTURE %.1fs / 60s | /wwoocloud capture to stop",(System.nanoTime()-started)/1e9),8,8,0xffe080,true);
         if(scene!=null)graphics.drawString(client.font,scene.biome()+" | cloud RGB "+String.format(Locale.ROOT,"%.3f %.3f %.3f",scene.tint().red(),scene.tint().green(),scene.tint().blue()),8,20,0xffffff,true);
         int y=32;for(String value:hud.values()){graphics.drawString(client.font,value,8,y,0xffffff,true);y+=12;}
         graphics.drawString(client.font,"Aim the centre at clouds; GPU alpha is measured before sky blending.",8,y+2,0xb0dfff,true);
@@ -180,6 +180,7 @@ public final class CloudDiagnostic {
             StringBuilder row=new StringBuilder();
             add(row,sample,(System.nanoTime()-started)/1_000_000,layer,style,scene.dimension(),scene.biome(),scene.x(),scene.y(),scene.z(),scene.yaw(),scene.pitch(),scene.tint().red(),scene.tint().green(),scene.tint().blue(),scene.skyR(),scene.skyG(),scene.skyB(),color[0],color[1],color[2],color[3],time,sun,rain,thunder,lightning,fogStart,fogEnd,blendState[0],blendState[1],blendState[2],blendState[3],blendState[4],blendState[5],blendState[6],x+px,y+py,present,raw.get(index),raw.get(index+1),raw.get(index+2),alpha,before.get(index),before.get(index+1),before.get(index+2),after.get(index),after.get(index+1),after.get(index+2));
             writer.write(row.append('\n').toString());
+            rows++;if(present)cloudPoints++;
         }
         hud.put(layer,covered==0?layer+" "+style+": no cloud at sampled points":String.format(Locale.ROOT,"%s %s: input %.3f | GPU alpha %.3f..%.3f (mean %.3f) | %d/32 points",layer,style,color[3],min,max,sum/covered,covered));
     }
