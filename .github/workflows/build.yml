@@ -35,6 +35,9 @@ jobs:
       - name: Build WWOO for Fabric 1.21.1
         run: python3 port/build.py
 
+      - name: Build temporary cloud measurement add-on
+        run: python3 port/build_cloud_diagnostics.py
+
       - name: Prepare software display for cloud shader checks
         run: |
           sudo apt-get update -qq
@@ -60,3 +63,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+
+      - name: Upload removable cloud diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: WWOO-cloud-diagnostics-Fabric-1.21.1
+          path: wwoo-cloud-diagnostics-fabric-1.21.1.jar
+          if-no-files-found: error
+          retention-days: 30

@@ -8,6 +8,7 @@ JAR=ROOT/'wwoo-fabric-1.21.1-3.0.1-backport.jar'
 folder=ROOT/'test-cloud-rendering';shutil.rmtree(folder,ignore_errors=True)
 (folder/'mods').mkdir(parents=True)
 with zipfile.ZipFile(JAR) as z:
+    release_version=json.loads(z.read('fabric.mod.json'))['version']
     config=json.loads(z.read('wwoo-content.client.mixins.json'))
     assert 'CloudRendererMixin' in config['client']
     assert 'SodiumCloudRendererMixin' in config['client']
@@ -48,7 +49,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
     client_libraries=list(pool.map(download,artifacts))
 
 classes=folder/'classes';classes.mkdir()
-cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),
+cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),str(ROOT/'diagnostics/build/diagnostic-named.jar'),
     (ROOT/'test-runtime/launch-classpath.txt').read_text(),*client_libraries])
 subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),
     str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudRenderProbe.java'),
@@ -71,7 +72,7 @@ def fixture(entrypoint):
             for n in p.namelist():z.writestr(n,p.read(n))
         z.writestr('data/wwoocontent/biome_attributes.json',attributes)
         z.writestr('cloud-probe-palettes.json',json.dumps(opacity_palettes))
-        z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo_cloud_probe','version':'1',
+        z.writestr('fabric.mod.json',json.dumps({'schemaVersion':1,'id':'wwoo','version':release_version,
             'environment':'client','entrypoints':{'preLaunch':['com.zachminecraft.wwoocontent.'+entrypoint]},
             'mixins':['cloud-probe.mixins.json']}))
         z.writestr('cloud-probe.mixins.json',json.dumps({'required':True,
@@ -88,7 +89,9 @@ def run(command,marker,name):
     print(result.stdout[-22000:])
     assert result.returncode==0 and marker in result.stdout,name+' cloud draw regression failed'
     if name=='vanilla':assert 'CLOUD_SKY_BLEND_PASS' in result.stdout
-    if name=='cirrus':assert 'CIRRUS_OPACITY_COMPOSITE_PASS' in result.stdout
+    if name=='cirrus':
+        assert 'CIRRUS_OPACITY_COMPOSITE_PASS' in result.stdout
+        assert 'CLOUD_DIAGNOSTIC_PASS' in result.stdout
 fixture('CloudRenderProbe')
 run(command,'CLOUD_RENDER_PASS','vanilla')
 
@@ -143,5 +146,6 @@ old_cp=[p for p in launch_cp.split(os.pathsep) if not any(token in p for token i
     ('fabric-loader.jar','sponge-mixin/','/org/ow2/asm/','/toolchain/lib/asm'))]
 cirrus_command=[*command]
 cirrus_command[cirrus_command.index('-cp')+1]=os.pathsep.join([*loader_cp,*old_cp])
+shutil.copyfile(ROOT/'wwoo-cloud-diagnostics-fabric-1.21.1.jar',folder/'mods/wwoo-cloud-diagnostics-fabric-1.21.1.jar')
 fixture('CirrusCloudRenderProbe')
 run(['xvfb-run','-a',*cirrus_command],'CIRRUS_CLOUD_RENDER_PASS','cirrus')

@@ -26,6 +26,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL14;
 import com.google.gson.JsonParser;
+import com.zachminecraft.wwoo.diagnostics.CloudDiagnostic;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Field;
@@ -208,6 +209,7 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
                 }
             }
             checkOpacityAndComposition(shader,type,renderer,frame,hook,opacity,pixel);
+            checkLiveDiagnostic(shader,type,pixel);
             require(GL11.glGetError()==GL11.GL_NO_ERROR,"Cirrus checks have no GL errors");
             MemoryUtil.memFree(pixel);GL15.glDeleteBuffers(vbo);GL30.glDeleteVertexArrays(vao);GL11.glDeleteTextures(texture);
         } finally {
@@ -303,6 +305,61 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
         }
         GL11.glDisable(GL11.GL_BLEND);
         System.out.println("CIRRUS_OPACITY_COMPOSITE_PASS: 6 native lighting/weather/time contexts keep biome alpha constant; pack time fades disabled; actual biome palettes reproduce contrast disappearance with alpha .25/.5/.15;"+evidence);
+    }
+
+    private static void checkLiveDiagnostic(ShaderInstance shader,Class<?> rendererType,ByteBuffer pixel) throws Exception {
+        // All three add-on mixins must apply to the actual 1.21.1 client and Cirrus classes.
+        require(Arrays.stream(rendererType.getDeclaredMethods()).filter(m->m.getName().contains("wwoo_diag$measureCloudDraw")).count()==1,"one applied diagnostic color draw hook");
+        require(Arrays.stream(Minecraft.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$tick")),"F8 tick hook applied");
+        require(Arrays.stream(Class.forName("net.minecraft.client.gui.Gui").getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$hud")),"HUD hook applied");
+        var exported=new ClassNode();new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class").resolve(rendererType.getName().replace('.','/')+".class"))).accept(exported,0);
+        var draw=exported.methods.stream().filter(m->m.name.equals("drawLayer")).findFirst().orElseThrow();
+        int wrapped=0,untouched=0;
+        for(var insn:draw.instructions)if(insn instanceof MethodInsnNode call) {
+            if(call.name.contains("wwoo_diag$measureCloudDraw"))wrapped++;
+            if(call.owner.equals("net/minecraft/class_291")&&call.name.equals("method_34427"))untouched++;
+        }
+        require(wrapped==1&&untouched==2,"only color pass is wrapped; fancy/debug depth passes unchanged");
+        RenderSystem.setShaderColor(.7f,.8f,.9f,.25f);
+        shader.getUniform("CirrusSunWeight").set(1f);shader.getUniform("CirrusLightViewDirection").set(0f,0f,1f);
+        shader.getUniform("CirrusLightningFlash").set(0f);shader.getUniform("CirrusTimeOpacity").set(1f);
+        GL11.glEnable(GL11.GL_BLEND);GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA,GL11.GL_ONE,GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);GL11.glDepthMask(true);GL11.glEnable(GL11.GL_SCISSOR_TEST);GL11.glScissor(0,0,32,32);
+        GL11.glClearColor(.2f,.3f,.4f,1);GL11.glClear(GL11.GL_COLOR_BUFFER_BIT|GL11.GL_DEPTH_BUFFER_BIT);
+        GL11.glDepthMask(false);
+        int[] counts={0,0};
+        Runnable drawCloud=()->{shader.setDefaultUniforms(VertexFormat.Mode.TRIANGLES,new Matrix4f(),new Matrix4f(),null);shader.apply();GL11.glDrawArrays(GL11.GL_TRIANGLES,0,3);shader.clear();};
+        CloudDiagnostic.draw(shader,()->counts[0]++,()->counts[1]++);
+        require(counts[0]==1&&counts[1]==0,"inactive recorder never replays or touches GL");counts[0]=counts[1]=0;
+        Path directory=Path.of("live-diagnostic-test");CloudDiagnostic.start(directory);
+        CloudDiagnostic.beginFrame(new CloudDiagnostic.Scene("minecraft:overworld","minecraft:forest",0,64,0,0,-80,CloudBlend.Color.fromArgb(0xccffffff),.2,.3,.4));
+        var layerField=rendererType.getDeclaredField("LOWER_LAYER");layerField.setAccessible(true);CloudDiagnostic.layer(layerField.get(null));
+        int vao=GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING),drawFbo=GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING),readFbo=GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int[] viewport=new int[4];GL11.glGetIntegerv(GL11.GL_VIEWPORT,viewport);
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT,8);GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH,40);GL11.glPixelStorei(GL11.GL_PACK_SKIP_ROWS,1);GL11.glPixelStorei(GL11.GL_PACK_SKIP_PIXELS,2);
+        CloudDiagnostic.draw(shader,()->{counts[0]++;drawCloud.run();},()->{counts[1]++;drawCloud.run();});
+        CloudDiagnostic.finishFrame();Path output=CloudDiagnostic.output();CloudDiagnostic.stop("test saved");
+        require(counts[0]==1&&counts[1]==1,"one screen draw and one offscreen replay on sampled frames");
+        require(GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING)==drawFbo&&GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING)==readFbo,"framebuffers restored");
+        int[] restored=new int[4];GL11.glGetIntegerv(GL11.GL_VIEWPORT,restored);require(Arrays.equals(viewport,restored),"viewport restored");
+        require(GL11.glIsEnabled(GL11.GL_BLEND)&&GL11.glIsEnabled(GL11.GL_DEPTH_TEST)&&GL11.glIsEnabled(GL11.GL_SCISSOR_TEST)&&!GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK),"blend, depth, scissor and depth-write states restored");
+        require(GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING)==vao,"VAO restored");
+        require(GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT)==8&&GL11.glGetInteger(GL11.GL_PACK_ROW_LENGTH)==40&&GL11.glGetInteger(GL11.GL_PACK_SKIP_ROWS)==1&&GL11.glGetInteger(GL11.GL_PACK_SKIP_PIXELS)==2,"readback pixel packing restored");
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT,4);GL11.glPixelStorei(GL11.GL_PACK_ROW_LENGTH,0);GL11.glPixelStorei(GL11.GL_PACK_SKIP_ROWS,0);GL11.glPixelStorei(GL11.GL_PACK_SKIP_PIXELS,0);
+        GL11.glReadPixels(16,16,1,1,GL11.GL_RGBA,GL11.GL_UNSIGNED_BYTE,pixel);
+        double[] expected={.7*.25+.2*.75,.8*.25+.3*.75,.9*.25+.4*.75,1};
+        for(int c=0;c<4;c++)require(Math.abs((pixel.get(c)&255)-expected[c]*255)<=2,"offscreen capture leaves visible screen unchanged");
+        var lines=Files.readAllLines(output);require(lines.size()==33,"CSV has one header and 32 central sample points");
+        var columns=Arrays.asList(lines.getFirst().split(","));
+        for(String row:lines.subList(1,lines.size())) {
+            String[] values=row.split(",");require(values.length==columns.size(),"CSV row schema consistent");
+            require(values[columns.indexOf("style")].equals("FAST"),"actual Cirrus fast style recorded");
+            require(values[columns.indexOf("covered")].equals("true"),"cloud coverage measured");
+            require(Math.abs(Double.parseDouble(values[columns.indexOf("fragment_alpha")])-.25)<.001,"recorded native shader alpha is real GPU result");
+            require(Math.abs(Double.parseDouble(values[columns.indexOf("after_r")])-expected[0])<.01,"visible frame color logged");
+        }
+        GL11.glDisable(GL11.GL_BLEND);GL11.glDisable(GL11.GL_DEPTH_TEST);GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        System.out.println("CLOUD_DIAGNOSTIC_PASS: actual client/Cirrus hooks, Fast style label, real post-shader alpha CSV, offscreen replay, unchanged visible pixels and restored GL/readback state");
     }
 
 }
