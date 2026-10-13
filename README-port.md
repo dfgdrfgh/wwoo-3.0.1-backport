@@ -61,6 +61,8 @@ Build `3.0.1+backport.1.21.1.10` applies the fade through the cloud shader inste
 
 Build `3.0.1+backport.1.21.1.11` makes the transition color-only. It interpolates directly between biome RGB values and preserves the existing cloud opacity instead of fading visibility. Actual palette-pair checks cover every biome cloud color and the fallback palette, including alpha-only boundary crossings during an unfinished transition. The real client hook checks white-to-gray, Dark Forest-to-Pale Garden, the reverse direction, and equal-RGB/different-alpha palettes, with constant shader alpha throughout.
 
+Build `3.0.1+backport.1.21.1.12` inlines cloud tinting into the draw mixin. It removes the separate CloudTint helper, capturing Runnable and shader-color array clone from each draw pass. The hook snapshots shader components into primitive locals and restores them in a finally block. Biome color interpolation and constant opacity are unchanged, and the wrapper still calls the original draw operation for compatibility. The real client regression checks the final transformed hook, both pass samples, draw arguments, color destinations, and shader-state restoration after exceptions.
+
 A side-by-side visual comparison with 26.3 has not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 
 The three inverted cave-disk height ranges from 2.6.7 remain in the preserved older resources. They can log `Empty height range: [-55 absolute--60 absolute]`; they are not conversion or registry errors.

@@ -2,10 +2,10 @@ package com.zachminecraft.wwoocontent.mixin;
 
 import com.zachminecraft.wwoocontent.CloudAttributes;
 import com.zachminecraft.wwoocontent.CloudBlend;
-import com.zachminecraft.wwoocontent.CloudTint;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import org.joml.Matrix4f;
@@ -29,7 +29,18 @@ public abstract class CloudRendererMixin {
         remap=false), remap=false)
     private void wwoo$tintCloudDraw(VertexBuffer buffer, Matrix4f modelView, Matrix4f projection,
                                     ShaderInstance shader, Operation<Void> original) {
-        CloudTint.draw(wwoo$frameColor, () -> original.call(buffer, modelView, projection, shader));
+        // Snapshot the shared shader-color array into locals before changing it.
+        // Tint the original operation directly, without a helper or capturing callback.
+        float[] state = RenderSystem.getShaderColor();
+        float red = state[0], green = state[1], blue = state[2], alpha = state[3];
+        var color = wwoo$frameColor;
+        RenderSystem.setShaderColor(red * (float)color.red(), green * (float)color.green(),
+            blue * (float)color.blue(), alpha);
+        try {
+            original.call(buffer, modelView, projection, shader);
+        } finally {
+            RenderSystem.setShaderColor(red, green, blue, alpha);
+        }
     }
 }
 

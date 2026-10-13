@@ -18,10 +18,9 @@ with zipfile.ZipFile(JAR) as z:
     helpers={n:z.read(n) for n in z.namelist() if n.startswith((
         'com/zachminecraft/wwoocontent/CloudBlend',
         'com/zachminecraft/wwoocontent/CloudAttributes',
-        'com/zachminecraft/wwoocontent/CloudTint',
         'com/zachminecraft/wwoocontent/mixin/CloudRendererMixin'))}
     attributes=z.read('data/wwoocontent/biome_attributes.json')
-    assert 'com/zachminecraft/wwoocontent/CloudTint.class' in helpers
+    assert 'com/zachminecraft/wwoocontent/CloudTint.class' not in z.namelist()
     assert not any('CloudRenderProbe' in n for n in z.namelist())
 
 manifest=json.load(urllib.request.urlopen('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'))
