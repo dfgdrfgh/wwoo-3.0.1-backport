@@ -25,6 +25,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -87,7 +88,14 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
                 colorSlot=v.var;tintPending=false;
             }
         }
-        require(originals==1 && tints==1 && draws>=3,"all Cirrus draw passes retain one tint calculation");
+        require(originals==1 && tints==1 && draws==1,"one shared tint and draw call inside Cirrus's layer loop");
+        int drawIndex=-1;boolean layerLoop=false;
+        for(var insn:render.instructions) {
+            if(insn instanceof MethodInsnNode call && call.name.equals("drawLayer"))drawIndex=render.instructions.indexOf(insn);
+            if(drawIndex>=0 && insn instanceof JumpInsnNode jump && jump.getOpcode()==Opcodes.GOTO
+                && render.instructions.indexOf(jump.label)<drawIndex)layerLoop=true;
+        }
+        require(layerLoop,"all enabled layers repeat the same tinted draw call");
         var frame=type.getDeclaredField("wwoo$frameColor");frame.setAccessible(true);
         Object renderer=unconstructed(type);
         Class<?> configType=Class.forName("com.jvn.cirrus.config.CirrusConfig");
@@ -128,6 +136,10 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
             vertices.put(new float[]{-1,-1,0, .5f,.5f, 1,1,1,1, 0,1,0,
                 3,-1,0, .5f,.5f, 1,1,1,1, 0,1,0, -1,3,0, .5f,.5f, 1,1,1,1, 0,1,0}).flip();
             GL15.glBufferData(GL15.GL_ARRAY_BUFFER,vertices,GL15.GL_STATIC_DRAW);MemoryUtil.memFree(vertices);
+            // Test the enabled Cirrus shader away from the sun/moon, with stable noon lighting.
+            shader.getUniform("CirrusEnabled").set(1f);
+            shader.getUniform("CirrusLightViewDirection").set(0f,0f,1f);
+            shader.getUniform("CirrusMoonViewDirection").set(0f,0f,-1f);
             RenderSystem.setShaderColor(1,1,1,1);
             shader.setDefaultUniforms(VertexFormat.Mode.TRIANGLES,new Matrix4f(),new Matrix4f(),null);shader.apply();
             int program=GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
