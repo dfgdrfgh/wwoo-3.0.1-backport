@@ -46,7 +46,8 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
     }
     private static Object config(Class<?> type,String name) throws Exception {
         Object value=type.getField(name).get(null);
-        return value.getClass().getMethod("get").invoke(value);
+        var getter=value.getClass().getMethod("get");getter.setAccessible(true);
+        return getter.invoke(value);
     }
     @Override public void onPreLaunch() {
         try {
