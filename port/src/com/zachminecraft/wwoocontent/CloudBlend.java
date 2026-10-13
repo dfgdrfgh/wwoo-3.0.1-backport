@@ -22,7 +22,7 @@ public final class CloudBlend {
         int maxX = (int)Math.floor((x + RADIUS - CELL / 2) / CELL);
         int minZ = (int)Math.ceil((z - RADIUS - CELL / 2) / CELL);
         int maxZ = (int)Math.floor((z + RADIUS - CELL / 2) / CELL);
-        double total = 0, alpha = 0, red = 0, green = 0, blue = 0;
+        double total = 0, alpha = 0, colorWeight = 0, red = 0, green = 0, blue = 0;
         for (int qx = minX; qx <= maxX; qx++) {
             double wx = weight(qx * CELL + CELL / 2 - x);
             if (wx == 0) continue;
@@ -32,11 +32,15 @@ public final class CloudBlend {
                 var color = Color.fromArgb(source.colorAt(qx, qz));
                 double opacity = w * color.alpha;
                 total += w; alpha += opacity;
-                // Premultiplication prevents invisible colors from darkening visible clouds.
-                red += opacity * color.red; green += opacity * color.green; blue += opacity * color.blue;
+                // Visible biome colors receive their spatial weight, independent of opacity.
+                // Ignore fully invisible colors so a cloud-free neighbor cannot add a dark fringe.
+                if (color.alpha > 0) {
+                    colorWeight += w;
+                    red += w * color.red; green += w * color.green; blue += w * color.blue;
+                }
             }
         }
-        return alpha > 0 ? new Color(red / alpha, green / alpha, blue / alpha, alpha / total)
+        return colorWeight > 0 ? new Color(red / colorWeight, green / colorWeight, blue / colorWeight, alpha / total)
             : new Color(1, 1, 1, 0);
     }
 
@@ -45,6 +49,7 @@ public final class CloudBlend {
         if (Math.abs(t) >= 1) return 0;
         double falloff = 1 - t * t;
         // Both value and slope reach zero when a sample enters/leaves the window.
-        return falloff * falloff;
+        double squared = falloff * falloff;
+        return squared * squared;
     }
 }

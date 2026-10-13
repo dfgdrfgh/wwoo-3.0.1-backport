@@ -37,6 +37,19 @@ public final class CloudBlendCheck {
             var b=CloudBlend.sample(x+1e-7,-x+1e-7,(qx,qz)->qx+qz<0?0x22888899:0xccffffff);
             require(Math.abs(a.red()-b.red())<1e-7 && Math.abs(a.alpha()-b.alpha())<1e-7,"continuous diagonal/grid boundary");
         }
+        // Low-opacity gray must not be diluted by the neighboring opaque white color.
+        CloudBlend.BiomeColors paleBorder=(qx,qz)->qx<0?0xccffffff:0x66828282;
+        var pale=CloudBlend.Color.fromArgb(0x66828282);
+        var equalBorder=CloudBlend.sample(0,0,paleBorder);
+        near(equalBorder.red(),(1+pale.red())/2,"equal spatial colors despite different opacity");
+        near(equalBorder.alpha(),.6,"opacity remains independently blended");
+        var paleAtFour=CloudBlend.sample(4,0,paleBorder);
+        double paleShare=(1-paleAtFour.red())/(1-pale.red());
+        require(paleShare>.75,"new biome has over 75 percent color influence four blocks inside");
+        var paleAtEight=CloudBlend.sample(8,0,paleBorder);
+        require((1-paleAtEight.red())/(1-pale.red())>.95,"new biome color dominates eight blocks inside");
+        var mirrored=CloudBlend.sample(-4,0,(qx,qz)->qx<0?0x66828282:0xccffffff);
+        near(paleAtFour.red(),mirrored.red(),"local-biome emphasis works in either travel direction");
         var transparent=CloudBlend.sample(0,0,(qx,qz)->qx<0?0xccffffff:0x00000000);
         near(transparent.red(),1,"no dark fringe from transparent neighbors");near(transparent.alpha(),.4,"opacity blends too");
         near(CloudBlend.sample(0,0,(qx,qz)->0).alpha(),0,"fully transparent biome");
@@ -49,6 +62,6 @@ public final class CloudBlendCheck {
             require(calls[0]>0 && calls[0]<=64,"at most 64 biome samples per cached result");
         }
         require(CloudBlend.sample(3.25,-.5,BORDER).equals(CloudBlend.sample(3.25,-.5,BORDER)),"position-driven result independent of timing");
-        System.out.println("CLOUD_BLEND_PASS: continuous spatial RGB/opacity, biome interiors, diagonal/negative boundaries, transparency, and bounded sampling");
+        System.out.println("CLOUD_BLEND_PASS: continuous spatial RGB/opacity, biome interiors, diagonal/negative boundaries, stronger local-biome tint, opacity independence, transparency, and bounded sampling");
     }
 }
