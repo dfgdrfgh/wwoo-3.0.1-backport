@@ -17,9 +17,11 @@ with zipfile.ZipFile(JAR) as z:
     helpers={n:z.read(n) for n in z.namelist() if n.startswith((
         'com/zachminecraft/wwoocontent/CloudBlend',
         'com/zachminecraft/wwoocontent/CloudAttributes',
+        'com/zachminecraft/wwoocontent/CloudOpacity',
         'com/zachminecraft/wwoocontent/mixin/CloudRendererMixin',
         'com/zachminecraft/wwoocontent/mixin/SodiumCloudRendererMixin',
-        'com/zachminecraft/wwoocontent/mixin/CirrusCloudRendererMixin'))}
+        'com/zachminecraft/wwoocontent/mixin/CirrusCloudRendererMixin',
+        'com/zachminecraft/wwoocontent/mixin/CirrusShaderProgramMixin'))}
     attributes=z.read('data/wwoocontent/biome_attributes.json')
     biome_attributes=json.loads(attributes)
     opacity_palettes={}
@@ -77,7 +79,7 @@ def fixture(entrypoint):
             'mixins':['cloud-probe.mixins.json']}))
         z.writestr('cloud-probe.mixins.json',json.dumps({'required':True,
             'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21',
-            'client':['CloudRendererMixin','SodiumCloudRendererMixin','CirrusCloudRendererMixin'],'injectors':{'defaultRequire':1}}))
+            'client':['CloudRendererMixin','SodiumCloudRendererMixin','CirrusCloudRendererMixin','CirrusShaderProgramMixin'],'injectors':{'defaultRequire':1}}))
 launch_cp=os.pathsep.join([(ROOT/'test-runtime/launch-classpath.txt').read_text(),
     str(ROOT/'toolchain/lib/intermediary.jar'),*client_libraries])
 command=[str(JAVA/'java'),'-Xmx2G','-Dmixin.debug.export=true',
@@ -92,6 +94,7 @@ def run(command,marker,name):
     if name=='cirrus':
         assert 'CIRRUS_OPACITY_COMPOSITE_PASS' in result.stdout
         assert 'CLOUD_DIAGNOSTIC_PASS' in result.stdout
+        assert 'CIRRUS_FAST_OPACITY_PASS' in result.stdout
 fixture('CloudRenderProbe')
 run(command,'CLOUD_RENDER_PASS','vanilla')
 

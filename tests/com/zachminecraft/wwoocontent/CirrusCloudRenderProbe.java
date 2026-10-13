@@ -218,6 +218,7 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
                 }
             }
             checkOpacityAndComposition(shader,type,renderer,frame,hook,opacity,pixel);
+            checkFastSunOpacity(shader,type,renderer,frame,hook,pixel);
             checkLiveDiagnostic(shader,type,pixel);
             require(GL11.glGetError()==GL11.GL_NO_ERROR,"Cirrus checks have no GL errors");
             MemoryUtil.memFree(pixel);GL15.glDeleteBuffers(vbo);GL30.glDeleteVertexArrays(vao);GL11.glDeleteTextures(texture);
@@ -370,6 +371,61 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
         GL11.glDisable(GL11.GL_BLEND);GL11.glDisable(GL11.GL_DEPTH_TEST);GL11.glDisable(GL11.GL_SCISSOR_TEST);
         require(CloudDiagnostic.status().contains("rows: 32, cloud points: 32"),"status reports actual recorded samples");
         System.out.println("CLOUD_DIAGNOSTIC_PASS: standard Fabric controls, actual Cirrus hook, Fast style label, real post-shader alpha CSV, offscreen replay, unchanged visible pixels and restored GL/readback state");
+    }
+
+    private static void checkFastSunOpacity(ShaderInstance shader,Class<?> type,Object renderer,Field frame,Method tintHook,ByteBuffer pixel) throws Exception {
+        require(shader.getUniform(CloudOpacity.UNIFORM)!=null,"actual Fabric shader constructor loads patched JSON and fragment uniform");
+        Method layerHook=Arrays.stream(type.getDeclaredMethods()).filter(m->m.getName().contains("wwoo$cirrusLayerMode")).findFirst().orElseThrow();layerHook.setAccessible(true);
+        Method modeHook=Arrays.stream(type.getDeclaredMethods()).filter(m->m.getName().contains("wwoo$cirrusOpacityMode")).findFirst().orElseThrow();modeHook.setAccessible(true);
+        var exported=new ClassNode();new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class").resolve(type.getName().replace('.','/')+".class"))).accept(exported,0);
+        var draw=exported.methods.stream().filter(m->m.name.equals("drawLayer")).findFirst().orElseThrow();
+        long selectors=java.util.stream.StreamSupport.stream(draw.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode call&&call.name.contains("wwoo$cirrusOpacityMode")).count();
+        require(selectors==3,"style opacity uniform applied to all actual Cirrus shader selections");
+        var configType=Class.forName("com.jvn.cirrus.config.CirrusConfig");Object setting=configType.getField("LOWER_LAYER_STYLE").get(null);
+        var getter=setting.getClass().getMethod("get");getter.setAccessible(true);Object originalStyle=getter.invoke(setting);
+        var setter=setting.getClass().getMethod("set",Object.class);setter.setAccessible(true);
+        Object[] styles=Class.forName("com.jvn.cirrus.config.CirrusConfig$CloudStyle").getEnumConstants();
+        Object fast=Arrays.stream(styles).filter(s->((Enum<?>)s).name().equals("FAST")).findFirst().orElseThrow();
+        Object fancy=Arrays.stream(styles).filter(s->((Enum<?>)s).name().equals("FANCY")).findFirst().orElseThrow();
+        var layerField=type.getDeclaredField("LOWER_LAYER");layerField.setAccessible(true);Object layer=layerField.get(null);
+        var nativeOpacity=layer.getClass().getDeclaredMethod("opacity",float.class,float.class);nativeOpacity.setAccessible(true);
+        Object[] args=new Object[layerHook.getParameterCount()];
+        for(int i=0;i<args.length;i++) {
+            Class<?> p=layerHook.getParameterTypes()[i];
+            if(p==double.class)args[i]=0d;else if(p==float.class)args[i]=0f;else if(p==long.class)args[i]=0L;else if(p==boolean.class)args[i]=false;
+        }
+        args[1]=layer;args[args.length-1]=new org.spongepowered.asm.mixin.injection.callback.CallbackInfo("drawLayer",false);
+        GL11.glDisable(GL11.GL_BLEND);GL11.glClearColor(0,0,0,0);
+        try {
+            for(float sunWeight:new float[]{.5f,1f})for(float rain:new float[]{0,1})for(float time:new float[]{.5f,1f}) {
+                shader.getUniform("CirrusLightViewDirection").set(1f,1f,0f);shader.getUniform("CirrusSunWeight").set(sunWeight);
+                shader.getUniform("CirrusRainLevel").set(rain);shader.getUniform("CirrusThunderLevel").set(0f);
+                shader.getUniform("CirrusLightningFlash").set(0f);shader.getUniform("CirrusTimeOpacity").set(time);
+                float alpha=(float)nativeOpacity.invoke(layer,rain,0f);
+                for(int step=0;step<=40;step++) {
+                    var tint=CloudBlend.sample(-14+28*step/40.0,64,0,(x,y,z)->x<0?0xccffffff:0x66828282);
+                    frame.set(renderer,tint);Vec3 color=(Vec3)tintHook.invoke(renderer,new Vec3(.7,.8,.9));
+                    setter.invoke(setting,fancy);layerHook.invoke(renderer,args);modeHook.invoke(renderer,shader);
+                    require(shader.getUniform(CloudOpacity.UNIFORM).getFloatBuffer().get(0)==0f,"Fancy keeps native sunlight alpha");
+                    drawPixel(shader,pixel,color,alpha);int[] rgb={pixel.get(0)&255,pixel.get(1)&255,pixel.get(2)&255};
+                    require(Math.abs((pixel.get(3)&255)-(alpha+(1-alpha)*sunWeight)*time*255)<=2,"Fancy sunlight opacity unchanged");
+                    setter.invoke(setting,fast);layerHook.invoke(renderer,args);modeHook.invoke(renderer,shader);
+                    require(shader.getUniform(CloudOpacity.UNIFORM).getFloatBuffer().get(0)==1f,"Fast layer selects configured-opacity mode");
+                    drawPixel(shader,pixel,color,alpha);
+                    require(Math.abs((pixel.get(3)&255)-alpha*time*255)<=2,"Fast opacity preserved near sun across biome blend, rain and time fade");
+                    for(int c=0;c<3;c++)require((pixel.get(c)&255)==rgb[c],"Fast and Fancy retain identical RGB sunlight/twilight lighting");
+                }
+            }
+            // Reusing the same shader after Fast must reset the mode for Fancy.
+            setter.invoke(setting,fancy);layerHook.invoke(renderer,args);modeHook.invoke(renderer,shader);
+            require(shader.getUniform(CloudOpacity.UNIFORM).getFloatBuffer().get(0)==0f,"Fast to Fancy resets shared shader uniform");
+            System.out.println("CIRRUS_FAST_OPACITY_PASS: real shader constructor and all layer selections; configured Fast alpha near sun; original Fancy alpha; identical RGB across biome/weather/time contexts; style reset");
+        } finally {
+            setter.invoke(setting,originalStyle);layerHook.invoke(renderer,args);modeHook.invoke(renderer,shader);
+            shader.getUniform("CirrusLightViewDirection").set(0f,0f,1f);shader.getUniform("CirrusSunWeight").set(1f);
+            shader.getUniform("CirrusRainLevel").set(0f);shader.getUniform("CirrusThunderLevel").set(0f);
+            shader.getUniform("CirrusLightningFlash").set(0f);shader.getUniform("CirrusTimeOpacity").set(1f);
+        }
     }
 
     private static void checkDiagnosticControls() throws Exception {

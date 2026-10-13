@@ -1,6 +1,6 @@
 # Temporary cloud measurement add-on
 
-Keep WWOO .15, Cirrus 1.4.1 and Fabric API installed. Replace the previous diagnostic JAR with this version (0.2); do not keep both. Add `wwoo-cloud-diagnostics-fabric-1.21.1.jar` to the same `mods` folder, then restart Minecraft. This is a separate client-only diagnostic; remove it after testing.
+Use WWOO .16 (or .15 for comparison), Cirrus 1.4.1 and Fabric API installed. Replace the previous diagnostic JAR with this version (0.3); do not keep both. Add `wwoo-cloud-diagnostics-fabric-1.21.1.jar` to the same `mods` folder, then restart Minecraft. This is a separate client-only diagnostic; remove it after testing.
 
 Aim the centre of the view at clouds/sky, as in the supplied clip. Use `/wwoocloud capture` or press **F8** to start a local capture, walk back and forth across the biome boundary for about 20–30 seconds, then use the same command/key again to stop. The key is now listed under **Options → Controls → Key Binds → WWOO Cloud Diagnostics → Start/stop cloud capture** and can be reassigned. `/wwoocloud status` confirms the add-on is loaded and reports recording state, sampled frames, CSV rows and cloud-covered points. The key uses Minecraft's queued press events, so a short tap between client ticks is retained. Recording also stops automatically after 60 seconds or when leaving the world. A small HUD shows each layer's style, input alpha and measured GPU fragment alpha. `no cloud at sampled points` means the sampled patch has no cloud fragments, not that cloud opacity became zero.
 

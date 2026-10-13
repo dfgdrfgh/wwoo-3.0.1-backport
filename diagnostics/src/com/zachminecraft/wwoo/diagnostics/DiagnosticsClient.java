@@ -31,7 +31,7 @@ public final class DiagnosticsClient implements ClientModInitializer {
         });
         HudRenderCallback.EVENT.register((graphics,delta)->CloudDiagnostic.drawHud(graphics));
         ClientCommandRegistrationCallback.EVENT.register((dispatcher,access)->registerCommands(dispatcher));
-        LoggerFactory.getLogger("WWOO-Cloud-Diagnostic").info("Cloud diagnostic 0.2 loaded: Controls > WWOO Cloud Diagnostics, or /wwoocloud capture");
+        LoggerFactory.getLogger("WWOO-Cloud-Diagnostic").info("Cloud diagnostic 0.3 loaded: Controls > WWOO Cloud Diagnostics, or /wwoocloud capture");
     }
     public static KeyMapping captureKey() {return captureKey;}
     public static void consumeClicks(KeyMapping mapping,boolean inGame,Runnable capture) {

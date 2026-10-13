@@ -53,7 +53,7 @@ public final class CloudDiagnostic {
         return notice;
     }
     public static String status() {
-        return "Cloud diagnostic 0.2: "+(active()?"recording":"idle")+" | frames: "+sample+", rows: "+rows+
+        return "Cloud diagnostic 0.3: "+(active()?"recording":"idle")+" | frames: "+sample+", rows: "+rows+
             ", cloud points: "+cloudPoints+(file==null?"":" | logs/"+file.getFileName());
     }
     public static void start(Path directory) throws IOException {
@@ -61,7 +61,7 @@ public final class CloudDiagnostic {
         Path logs=directory.resolve("logs");Files.createDirectories(logs);
         file=logs.resolve("wwoo-cloud-diagnostics-"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))+".csv");
         writer=Files.newBufferedWriter(file);
-        writer.write("sample,elapsed_ms,layer,style,dimension,biome,camera_x,camera_y,camera_z,yaw,pitch,tint_r,tint_g,tint_b,sky_r,sky_g,sky_b,shader_r,shader_g,shader_b,input_alpha,time_opacity,sun_weight,rain,thunder,lightning,fog_start,fog_end,blend_enabled,blend_src_rgb,blend_dst_rgb,blend_src_alpha,blend_dst_alpha,depth_test,depth_write,screen_x,screen_y,covered,fragment_r,fragment_g,fragment_b,fragment_alpha,before_r,before_g,before_b,after_r,after_g,after_b\n");
+        writer.write("sample,elapsed_ms,layer,style,dimension,biome,camera_x,camera_y,camera_z,yaw,pitch,tint_r,tint_g,tint_b,sky_r,sky_g,sky_b,shader_r,shader_g,shader_b,input_alpha,time_opacity,fast_opacity_mode,sun_weight,rain,thunder,lightning,fog_start,fog_end,blend_enabled,blend_src_rgb,blend_dst_rgb,blend_src_alpha,blend_dst_alpha,depth_test,depth_write,screen_x,screen_y,covered,fragment_r,fragment_g,fragment_b,fragment_alpha,before_r,before_g,before_b,after_r,after_g,after_b\n");
         writer.flush();started=System.nanoTime();nextSample=0;sample=rows=cloudPoints=0;captureFrame=false;scene=null;hud.clear();
         notice="Recording locally; capture key or /wwoocloud capture stops. "+file.getFileName();
         LOG.info("{}",notice);
@@ -117,7 +117,7 @@ public final class CloudDiagnostic {
         if(w<=0||h<=0){original.run();return;}
         int x=viewport[0]+(viewport[2]-w)/2,y=viewport[1]+(viewport[3]-h)/2;
         float[] shaderColor=RenderSystem.getShaderColor().clone();
-        float time=uniform(shader,"CirrusTimeOpacity"),sun=uniform(shader,"CirrusSunWeight"),rain=uniform(shader,"CirrusRainLevel"),thunder=uniform(shader,"CirrusThunderLevel"),lightning=uniform(shader,"CirrusLightningFlash");
+        float time=uniform(shader,"CirrusTimeOpacity"),fastMode=uniform(shader,"WwooFastOpacity"),sun=uniform(shader,"CirrusSunWeight"),rain=uniform(shader,"CirrusRainLevel"),thunder=uniform(shader,"CirrusThunderLevel"),lightning=uniform(shader,"CirrusLightningFlash");
         float fogStart=RenderSystem.getShaderFogStart(),fogEnd=RenderSystem.getShaderFogEnd();
         int[] blendState={GL11.glIsEnabled(GL11.GL_BLEND)?1:0,GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB),GL11.glGetInteger(GL14.GL_BLEND_DST_RGB),GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA),GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA),GL11.glIsEnabled(GL11.GL_DEPTH_TEST)?1:0,GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK)?1:0};
         // Allocation/readback failures must never prevent the normal draw.
@@ -134,7 +134,7 @@ public final class CloudDiagnostic {
             GL11.glClearColor(0,0,0,0);GL11.glClear(GL11.GL_COLOR_BUFFER_BIT|GL11.GL_DEPTH_BUFFER_BIT);
             replay.run();
             readPixels(0,0,w,h,raw);
-            write(shaderColor,time,sun,rain,thunder,lightning,fogStart,fogEnd,blendState,x,y,w,h);
+            write(shaderColor,time,fastMode,sun,rain,thunder,lightning,fogStart,fogEnd,blendState,x,y,w,h);
         } catch(Throwable failure) {fail(failure);}
         finally {state.restore();}
     }
@@ -171,14 +171,14 @@ public final class CloudDiagnostic {
             if(GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER)!=GL30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException("Incomplete cloud diagnostic framebuffer");
         } finally {GL11.glBindTexture(GL11.GL_TEXTURE_2D,texture);GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER,renderbuffer);}
     }
-    private static void write(float[] color,float time,float sun,float rain,float thunder,float lightning,float fogStart,float fogEnd,int[] blendState,int x,int y,int w,int h) throws IOException {
+    private static void write(float[] color,float time,float fastMode,float sun,float rain,float thunder,float lightning,float fogStart,float fogEnd,int[] blendState,int x,int y,int w,int h) throws IOException {
         int covered=0;float min=Float.POSITIVE_INFINITY,max=0,sum=0;
         for(int gy=0;gy<4;gy++)for(int gx=0;gx<8;gx++) {
             int px=Math.min(w-1,(int)((gx+.5)*w/8)),py=Math.min(h-1,(int)((gy+.5)*h/4)),index=(py*w+px)*4;
             float alpha=raw.get(index+3);boolean present=alpha>0;
             if(present){covered++;min=Math.min(min,alpha);max=Math.max(max,alpha);sum+=alpha;}
             StringBuilder row=new StringBuilder();
-            add(row,sample,(System.nanoTime()-started)/1_000_000,layer,style,scene.dimension(),scene.biome(),scene.x(),scene.y(),scene.z(),scene.yaw(),scene.pitch(),scene.tint().red(),scene.tint().green(),scene.tint().blue(),scene.skyR(),scene.skyG(),scene.skyB(),color[0],color[1],color[2],color[3],time,sun,rain,thunder,lightning,fogStart,fogEnd,blendState[0],blendState[1],blendState[2],blendState[3],blendState[4],blendState[5],blendState[6],x+px,y+py,present,raw.get(index),raw.get(index+1),raw.get(index+2),alpha,before.get(index),before.get(index+1),before.get(index+2),after.get(index),after.get(index+1),after.get(index+2));
+            add(row,sample,(System.nanoTime()-started)/1_000_000,layer,style,scene.dimension(),scene.biome(),scene.x(),scene.y(),scene.z(),scene.yaw(),scene.pitch(),scene.tint().red(),scene.tint().green(),scene.tint().blue(),scene.skyR(),scene.skyG(),scene.skyB(),color[0],color[1],color[2],color[3],time,fastMode,sun,rain,thunder,lightning,fogStart,fogEnd,blendState[0],blendState[1],blendState[2],blendState[3],blendState[4],blendState[5],blendState[6],x+px,y+py,present,raw.get(index),raw.get(index+1),raw.get(index+2),alpha,before.get(index),before.get(index+1),before.get(index+2),after.get(index),after.get(index+1),after.get(index+2));
             writer.write(row.append('\n').toString());
             rows++;if(present)cloudPoints++;
         }
