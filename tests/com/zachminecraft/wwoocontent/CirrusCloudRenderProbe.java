@@ -171,7 +171,7 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
                 GL20.glEnableVertexAttribArray(attribute);GL20.glVertexAttribPointer(attribute,sizes[i],GL11.GL_FLOAT,false,48,offsets[i]);
             }
             GL11.glViewport(0,0,32,32);GL11.glDisable(GL11.GL_BLEND);GL11.glDisable(GL11.GL_DEPTH_TEST);
-            ByteBuffer pixel=MemoryUtil.memAlloc(4);long start=10_000_000_000L;
+            ByteBuffer pixel=MemoryUtil.memAlloc(4);
             double[] times={1000,6000,12000,18000};
             String[] phases={"DAY_CLOUD_TINT","NOON_CLOUD_TINT","EVENING_CLOUD_TINT","NIGHT_CLOUD_TINT"};
             for(int phase=0;phase<times.length;phase++) {
@@ -182,10 +182,9 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
                 for(Vec3 base:new Vec3[]{new Vec3(.7,.8,.9),new Vec3(.8,.8,.8)}) {
                     Vec3 cirrus=base.multiply(time);
                     for(int[] pair:new int[][]{{0xccffffff,0x66828282},{0x66888899,0x66828282},{0x66828282,0x66888899}}) {
-                        var blend=new CloudBlend();blend.update(pair[0],start);blend.update(pair[1],start);
                         int previousRed=-1;
                         for(int step=0;step<=120;step++) {
-                            var tint=blend.update(pair[1],start+step*CloudBlend.DURATION_NANOS/120);frame.set(renderer,tint);
+                            var tint=CloudBlend.sample(-14+28*step/120.0,64,0,(x,y,z) -> x<0 ? pair[0]:pair[1]);frame.set(renderer,tint);
                             Vec3 color=(Vec3)hook.invoke(renderer,cirrus);
                             require(color.distanceTo(new Vec3(cirrus.x*tint.red(),cirrus.y*tint.green(),cirrus.z*tint.blue()))<1e-9,"preserve Cirrus base RGB");
                             for(double alpha:opacity) {

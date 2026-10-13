@@ -2,11 +2,9 @@ package com.zachminecraft.wwoocontent;
 
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.Biome;
 import java.io.InputStreamReader;
-import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,8 +13,6 @@ import java.util.Map;
 public final class CloudAttributes {
     private static final int DEFAULT = 0xccffffff;
     private static final Map<String, Integer> COLORS = load();
-    private static WeakReference<ClientLevel> previousLevel = new WeakReference<>(null);
-    private static final CloudBlend TRANSITION = new CloudBlend();
 
     private static Map<String, Integer> load() {
         try (var stream = CloudAttributes.class.getResourceAsStream("/data/wwoocontent/biome_attributes.json")) {
@@ -42,16 +38,12 @@ public final class CloudAttributes {
         var client = Minecraft.getInstance();
         var camera = client.gameRenderer.getMainCamera();
         if (client.level == null || camera.getEntity() == null) {
-            previousLevel.clear(); TRANSITION.reset();
             return CloudBlend.Color.fromArgb(DEFAULT);
         }
-        var level = client.level;
-        if (previousLevel.get() != level) {
-            TRANSITION.reset();
-            previousLevel = new WeakReference<>(level);
-        }
-        // Only the biome actually occupied by the camera supplies the target palette.
-        int target = biomeColor(level.getBiome(camera.getBlockPosition()));
-        return TRANSITION.update(target, System.nanoTime());
+        var manager = client.level.getBiomeManager();
+        var position = camera.getPosition();
+        // Sample the actual noise-biome volume just as the sky does, using each biome's cloud RGB.
+        return CloudBlend.sample(position.x, position.y, position.z,
+            (x, y, z) -> biomeColor(manager.getNoiseBiomeAtQuart(x, y, z)));
     }
 }

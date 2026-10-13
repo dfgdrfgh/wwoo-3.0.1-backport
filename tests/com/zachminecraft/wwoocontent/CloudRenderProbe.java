@@ -28,6 +28,7 @@ public final class CloudRenderProbe implements PreLaunchEntrypoint {
     }
 
     private static void check() throws Exception {
+        CloudBlendCheck.check();
         // Loading this actual client class applies the release mixin and validates its selectors.
         Class<?> rendererClass = Class.forName("net.minecraft.class_761");
         var hooks = Arrays.stream(rendererClass.getDeclaredMethods())
@@ -45,14 +46,11 @@ public final class CloudRenderProbe implements PreLaunchEntrypoint {
         float[] originalState = {.7f, .8f, .9f, .65f};
         RenderSystem.setShaderColor(originalState[0], originalState[1], originalState[2], originalState[3]);
         var modelView = new Matrix4f(); var projection = new Matrix4f();
-        long start = 10_000_000_000L;
         for (int[] pair : new int[][]{{0xccffffff,0x66828282},{0x66888899,0x66828282},
                                      {0x66828282,0x66888899},{0xccffffff,0x11ffffff}}) {
-            var blend = new CloudBlend();
-            blend.update(pair[0], start); blend.update(pair[1], start);
             var source = CloudBlend.Color.fromArgb(pair[0]); var target = CloudBlend.Color.fromArgb(pair[1]);
             for (int frame = 0; frame <= 120; frame++) {
-                var color = blend.update(pair[1], start + frame * CloudBlend.DURATION_NANOS / 120);
+                var color = CloudBlend.sample(-14+28*frame/120.0,64,0,(x,y,z) -> x<0 ? pair[0]:pair[1]);
                 frameColor.set(renderer, color);
                 float[][] passes = new float[2][];
                 for (int pass = 0; pass < 2; pass++) {

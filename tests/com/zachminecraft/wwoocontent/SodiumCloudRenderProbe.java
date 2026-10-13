@@ -107,12 +107,10 @@ public final class SodiumCloudRenderProbe implements PreLaunchEntrypoint {
             GL20.glEnableVertexAttribArray(color);GL20.glVertexAttribPointer(color,4,GL11.GL_FLOAT,false,28,12L);
             GL11.glViewport(0,0,32,32);GL11.glDisable(GL11.GL_BLEND);GL11.glDisable(GL11.GL_DEPTH_TEST);
             ByteBuffer pixel=MemoryUtil.memAlloc(4);
-            long start=10_000_000_000L;
             for(int[] pair:new int[][]{{0xccffffff,0x66828282},{0x66888899,0x66828282},{0x66828282,0x66888899}}) {
-                var blend=new CloudBlend();blend.update(pair[0],start);blend.update(pair[1],start);
                 int previousRed=-1;
                 for(int step=0;step<=120;step++) {
-                    var tint=blend.update(pair[1],start+step*CloudBlend.DURATION_NANOS/120);frame.set(renderer,tint);
+                    var tint=CloudBlend.sample(-14+28*step/120.0,64,0,(x,y,z) -> x<0 ? pair[0]:pair[1]);frame.set(renderer,tint);
                     var args=new ColorArgs();hook.invoke(renderer,args);
                     require((float)args.get(3)==.8f,"Sodium opacity unchanged");
                     RenderSystem.setShaderColor(args.get(0),args.get(1),args.get(2),args.get(3));

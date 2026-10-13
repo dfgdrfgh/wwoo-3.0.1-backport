@@ -46,6 +46,7 @@ cp=os.pathsep.join([str(JAR),str(ROOT/'minecraft-client-named.jar'),
     (ROOT/'test-runtime/launch-classpath.txt').read_text(),*client_libraries])
 subprocess.run([str(JAVA/'javac'),'-proc:none','--release','21','-cp',cp,'-d',str(classes),
     str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudRenderProbe.java'),
+    str(ROOT/'tests/com/zachminecraft/wwoocontent/CloudBlendCheck.java'),
     str(ROOT/'tests/com/zachminecraft/wwoocontent/SodiumCloudRenderProbe.java'),
     str(ROOT/'tests/com/zachminecraft/wwoocontent/CirrusCloudRenderProbe.java')],check=True)
 raw=folder/'probe-named.jar'
@@ -79,6 +80,7 @@ def run(command,marker,name):
     (folder/(name+'.log')).write_text(result.stdout)
     print(result.stdout[-22000:])
     assert result.returncode==0 and marker in result.stdout,name+' cloud draw regression failed'
+    if name=='vanilla':assert 'CLOUD_SKY_BLEND_PASS' in result.stdout
 fixture('CloudRenderProbe')
 run(command,'CLOUD_RENDER_PASS','vanilla')
 
