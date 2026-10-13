@@ -11,7 +11,8 @@ JAR=ROOT/'wwoo-fabric-1.21.1-3.0.1-backport.jar'
 MIXINS=['PaleGardenSpawnMixins$'+n for n in ('Placement','SpawnReason','ServerInsertion','GenerationInsertion')]
 with zipfile.ZipFile(JAR) as z:
     biome=json.loads(z.read('resources/wwoo_main/data/minecraft/worldgen/biome/pale_garden.json'))
-    assert all(row['type'] in {'minecraft:creaking','minecraft:phantom'} for rows in biome['spawners'].values() for row in rows)
+    assert biome['spawners'].get('monster'), 'Pale Garden needs its underground monster spawn list'
+    assert any(row['type'] not in {'minecraft:creaking','minecraft:phantom'} for rows in biome['spawners'].values() for row in rows)
     assert all(n in json.loads(z.read('wwoo-content.common.mixins.json'))['mixins'] for n in MIXINS)
     helpers={n:z.read(n) for n in z.namelist() if n.startswith('com/zachminecraft/wwoocontent/PaleGardenSpawning') or n.startswith('com/zachminecraft/wwoocontent/mixin/PaleGardenSpawnMixins')}
 folder=ROOT/'test-spawning';shutil.rmtree(folder,ignore_errors=True)
@@ -51,7 +52,7 @@ for name,biome_id in [('pale','pale_garden'),('plains','plains')]:
     put(f'data/audit/dimension/{name}.json',{'type':'minecraft:overworld','generator':{'type':'minecraft:noise','settings':'minecraft:overworld','biome_source':{'type':'minecraft:fixed','biome':'minecraft:'+biome_id}}})
 (folder/'eula.txt').write_text('eula=true\n')
 (folder/'server.properties').write_text('online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\nmax-tick-time=-1\nlevel-seed=1234567\nlevel-name=world\nspawn-protection=0\n')
-log=folder/'console.log';markers=['WWOO_SPAWN_'+m+'_PASS' for m in ('WORLDGEN','PALE','PLAINS')]
+log=folder/'console.log';markers=['WWOO_SPAWN_'+m+'_PASS' for m in ('WORLDGEN','PALE','PLAINS','UNDERGROUND','CANOPY','SLOPES','PARTIAL')]
 with log.open('w') as out:
     p=subprocess.Popen([str(JAVA/'java'),'-Xmx3G','-Dfabric.gameJarPath='+str(ROOT/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(ROOT/'test-runtime/launch-classpath.txt').read_text()+os.pathsep+str(ROOT/'toolchain/lib/intermediary.jar'),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui'],cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
     try:
@@ -74,4 +75,4 @@ with log.open('w') as out:
         print(log.read_text(errors='replace')[-18000:]);raise
     finally:
         if p.poll() is None:p.kill();p.wait()
-print('Pale Garden spawning runtime checks passed: standard/modded mobs, phantoms, events, generation, creaking whitelist, manual spawns, and consumed flags.')
+print('Surface-only Pale Garden checks passed: underground spawning, slopes, canopy coverage, partial ground, standard/modded mobs, exceptions, generation, manual spawns, and consumed flags.')

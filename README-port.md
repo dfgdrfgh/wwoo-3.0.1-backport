@@ -29,7 +29,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Pale Garden spawning
 
-Natural biome spawning, initial animal generation, patrols, and event spawners are blocked in `minecraft:pale_garden`, except for creakings and phantoms. The rule uses the mob’s spawn position and applies to vanilla and modded mobs using the standard spawn lifecycle. WWOO template animals follow the same exception list. Creaking-heart spawning, spawn eggs, commands, breeding, and mob spawners remain allowed. Existing mobs are not removed and can enter the biome. Runtime checks use generation-region biome data without requesting chunks through the backing server world.
+Natural biome spawning, initial animal generation, patrols, and event spawners are blocked at the surface of `minecraft:pale_garden`, except for creakings and phantoms. Underground spawning retains the biome’s normal spawn lists and vanilla/mod spawn conditions. Surface means at or above the highest solid ground block in the local column, ignoring leaves and logs; it is not a fixed Y cutoff or a sky-visibility test. The rule uses the mob’s spawn position and applies to vanilla and modded mobs using the standard spawn lifecycle. WWOO template animals follow the same exception list. Creaking-heart spawning, spawn eggs, commands, breeding, and mob spawners remain allowed. Existing mobs are not removed and can enter the biome. Runtime checks use generation-region biome data without requesting chunks through the backing server world.
 
 ## Validation
 
@@ -44,6 +44,8 @@ Build `3.0.1+backport.1.21.1.4` fixes the removal-pack condition and plant behav
 The noise sampler was compared with the supplied 26.3 runtime over 20,000 samples with no bitwise differences. Dedicated-server integration exercises normal generation, fixed-biome generation, TrueVanillaBackport compatibility, saving, and shutdown. Behavior cases cover optional/nested rules, sequence and overlay placement, vegetation support, moss carpets, template animals, leaf support, and the desert striped-wolf selector.
 
 Build `3.0.1+backport.1.21.1.5` adds the Pale Garden spawning restriction. `tests/pale_garden_spawning.py` runs the exact new release mixin classes on an isolated dedicated server, checking biome boundaries, generation, modded mobs, event spawning, manual spawning, and transient spawn flags. Its test-only creaking ID validates the whitelist; it does not simulate creaking-heart behavior.
+
+Build `3.0.1+backport.1.21.1.6` limits the rule to the surface and restores the original biome spawn lists for underground spawning. Runtime regression checks cover caves, sloped terrain, leaves/logs above the surface, and partial ground blocks, as well as the existing exceptions and manual spawn cases.
 
 Client rendering and a side-by-side visual comparison with 26.3 have not been performed. The target version retains its own rendering engine and ordinary vanilla support-feature implementations, so this is not a claim that every pixel or underlying Minecraft engine behavior is identical to 26.3.
 
