@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import java.lang.reflect.Modifier;
 import java.io.File;
 import net.minecraft.server.Bootstrap;
@@ -312,7 +313,7 @@ public final class CirrusCloudRenderProbe implements PreLaunchEntrypoint {
         require(Arrays.stream(rendererType.getDeclaredMethods()).filter(m->m.getName().contains("wwoo_diag$measureCloudDraw")
             && !m.getName().contains("lambda$") && m.getParameterCount()==5).count()==1,"one applied diagnostic color draw hook");
         require(Arrays.stream(Minecraft.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$tick")),"F8 tick hook applied");
-        require(Arrays.stream(Class.forName("net.minecraft.client.gui.Gui").getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$hud")),"HUD hook applied");
+        require(Arrays.stream(Gui.class.getDeclaredMethods()).anyMatch(m->m.getName().contains("wwoo_diag$hud")),"HUD hook applied");
         var exported=new ClassNode();new ClassReader(Files.readAllBytes(Path.of(".mixin.out/class").resolve(rendererType.getName().replace('.','/')+".class"))).accept(exported,0);
         var draw=exported.methods.stream().filter(m->m.name.equals("drawLayer")).findFirst().orElseThrow();
         int wrapped=0,untouched=0;
