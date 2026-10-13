@@ -4,7 +4,7 @@ The pre-launch probe invokes its transformed draw hook using actual RenderSystem
 shader state. No GPU draw, game assets, substitute Minecraft classes or world required.
 """
 from pathlib import Path
-import concurrent.futures,json,os,shutil,subprocess,urllib.request,zipfile
+import concurrent.futures,json,os,platform,shutil,subprocess,urllib.request,zipfile
 
 ROOT=Path(__file__).resolve().parent.parent
 JAVA=Path(os.environ['WWOO_JAVA_HOME'])/'bin' if 'WWOO_JAVA_HOME' in os.environ else Path(shutil.which('javac')).resolve().parent
@@ -26,9 +26,13 @@ with zipfile.ZipFile(JAR) as z:
 
 manifest=json.load(urllib.request.urlopen('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'))
 version=json.load(urllib.request.urlopen(next(x['url'] for x in manifest['versions'] if x['id']=='1.21.1')))
-# The client class verifier needs its Java libraries; native classifiers are unnecessary.
+# RenderSystem initializes Minecraft's native memory allocator, even without a window.
+native_os={'Linux':'linux','Darwin':'macos','Windows':'windows'}[platform.system()]
+native_suffix='-arm64' if platform.machine().lower() in {'aarch64','arm64'} else ''
+native_classifier='natives-'+native_os+native_suffix
 artifacts=[lib['downloads']['artifact'] for lib in version['libraries']
-    if 'natives-' not in lib['name'] and 'artifact' in lib.get('downloads',{})]
+    if ('natives-' not in lib['name'] or lib['name'].endswith(':'+native_classifier))
+    and 'artifact' in lib.get('downloads',{})]
 def download(artifact):
     path=ROOT/'test-runtime/libraries'/artifact['path']
     if not path.exists():
