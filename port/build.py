@@ -199,7 +199,6 @@ for n,v in selected.items():
     # Keep visual-only fields before the target biome codec removes them.
     # Sharing effects here lost dry-foliage overrides through effects.pop().
     visual_attributes['minecraft:'+biome]={'attributes':copy.deepcopy(attr),'effects':copy.deepcopy(effects)}
-    visual_attributes['minecraft:'+biome]['attributes'].pop('minecraft:visual/cloud_color',None)
     effects.pop('dry_foliage_color',None)
     for field in ['sky_color','fog_color','water_fog_color']:
         if 'minecraft:visual/'+field in attr:effects[field]=attr['minecraft:visual/'+field]
@@ -291,7 +290,7 @@ for namespace,path in sorted([('wythers',p) for p in templates]+[('minecraft',p)
     entries[PREFIX+(NS if namespace=='wythers' else 'minecraft')+'/structure/'+path+'.nbt']=nbt.write(name,root)
 import resources
 resources.apply_resources(entries,old,new,vanilla_new,put,visual_attributes,convert)
-meta=json.loads(old.read('fabric.mod.json'));meta['version']='3.0.1+backport.1.21.1.17';meta['entrypoints']['main'].append('com.zachminecraft.wwoocontent.ContentPort');meta['depends']['minecraft']='~1.21.1';meta['depends']['java']='>=21';meta['depends']['vanillabackport']='>=1.2.0.2638.9'
+meta=json.loads(old.read('fabric.mod.json'));meta['version']='3.0.1+backport.1.21.1.18';meta['entrypoints']['main'].append('com.zachminecraft.wwoocontent.ContentPort');meta['depends']['minecraft']='~1.21.1';meta['depends']['java']='>=21';meta['depends']['vanillabackport']='>=1.2.0.2638.9'
 meta['mixins']=meta.get('mixins',[])+['wwoo-content.common.mixins.json',{'config':'wwoo-content.client.mixins.json','environment':'client'}]
 put('fabric.mod.json',meta)
 put('wwoo-content.common.mixins.json',{'required':True,'package':'com.zachminecraft.wwoocontent.mixin','compatibilityLevel':'JAVA_21','mixins':['PaleGardenSpawnMixins$Placement','PaleGardenSpawnMixins$SpawnReason','PaleGardenSpawnMixins$ServerInsertion','PaleGardenSpawnMixins$GenerationInsertion','BonemealMixin','PlantSupportMixins$Vegetation','PlantSupportMixins$Crops','PlantSupportMixins$Cocoa','PlantSupportMixins$Cactus','PlantSupportMixins$SugarCane','PlantSupportMixins$LeafSupport'],'injectors':{'defaultRequire':1}})

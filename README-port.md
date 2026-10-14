@@ -29,7 +29,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Separate cloud mod
 
-Build `.17` removes all cloud rendering hooks, the Cirrus shader patch, cloud palettes and the temporary diagnostic from WWOO. Those features are now supplied by the separate client-only Biome Cloud Transitions mod. WWOO's sky colors and world generation remain unchanged. Replace the old WWOO JAR before installing the separate cloud mod.
+Build `.18` retains the original biome cloud-color data and removes the custom cloud rendering hooks, Cirrus shader patch and temporary diagnostic from WWOO. WWOO uses ordinary vanilla cloud rendering when used alone. Biome Cloud Transitions handles the biome cloud colors, spatial transitions and Fast opacity fix when installed separately. WWOO's sky colors and world generation remain unchanged. Replace older WWOO builds containing cloud hooks before installing the separate cloud mod.
 
 ## Pale Garden spawning
 
