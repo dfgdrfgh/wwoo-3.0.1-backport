@@ -43,7 +43,8 @@ jobs:
           python3 tests/dry_foliage.py
           python3 tests/ice_preservation.py
           python3 tests/pale_garden_spawning.py
-          python3 tests/no_cloud_features.py
+          python3 tests/cloud_baseline.py
+          python3 tests/cloud_baseline_runtime.py
           sha256sum wwoo-fabric-1.21.1-3.0.1-backport.jar
 
       - name: Upload installable mod JAR
@@ -53,3 +54,4 @@ jobs:
           path: wwoo-fabric-1.21.1-3.0.1-backport.jar
           if-no-files-found: error
           retention-days: 30
+

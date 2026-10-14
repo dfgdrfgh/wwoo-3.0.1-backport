@@ -1,0 +1,21 @@
+"""Check restored reference-build cloud hooks and original biome palettes."""
+from pathlib import Path
+import json, zipfile
+ROOT=Path(__file__).resolve().parent.parent
+with zipfile.ZipFile(ROOT/'wwoo-fabric-1.21.1-3.0.1-backport.jar') as z:
+    assert json.loads(z.read('fabric.mod.json'))['version']=='3.0.1+backport.1.21.1.19'
+    mixins=json.loads(z.read('wwoo-content.client.mixins.json'))
+    assert mixins['client']==['CloudColorMixin','CloudRendererAccess','CloudRendererMixin','WWOOConfigScreenMixin']
+    for name in ['CloudColorMixin','CloudRendererAccess','CloudRendererMixin']:
+        assert 'com/zachminecraft/wwoocontent/mixin/'+name+'.class' in z.namelist()
+    assert 'com/zachminecraft/wwoocontent/CloudAttributes.class' in z.namelist()
+    assert not any('CloudBlend' in n or 'CloudOpacity' in n or 'SodiumCloudRendererMixin' in n
+        or 'CirrusCloudRendererMixin' in n or 'CirrusShaderProgramMixin' in n for n in z.namelist())
+    palette={biome:entry['attributes']['minecraft:visual/cloud_color']
+        for biome,entry in json.loads(z.read('data/wwoocontent/biome_attributes.json')).items()
+        if 'minecraft:visual/cloud_color' in entry.get('attributes',{})}
+    assert len(palette)==22
+    assert palette['minecraft:pale_garden']=='#66828282'
+    assert palette['minecraft:desert']=='#11ffffff'
+print('CLOUD_BASELINE_PACKAGE_PASS: reference tint/alpha hooks, 22 original cloud colors; advanced cloud changes remain separate')
+

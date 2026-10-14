@@ -29,7 +29,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Separate cloud mod
 
-Build `.18` retains the original biome cloud-color data and removes the custom cloud rendering hooks, Cirrus shader patch and temporary diagnostic from WWOO. WWOO uses ordinary vanilla cloud rendering when used alone. Biome Cloud Transitions handles the biome cloud colors, spatial transitions and Fast opacity fix when installed separately. WWOO's sky colors and world generation remain unchanged. Replace older WWOO builds containing cloud hooks before installing the separate cloud mod.
+Build `.19` restores the reference `.6` build's immediate biome cloud RGB and encoded opacity. Cloud colors change as soon as the camera enters a different biome, without the later spatial or timed transition system. When Biome Cloud Transitions is installed, WWOO bypasses both its cloud tint and alpha hooks; the standalone mod then controls cloud rendering without double tinting or baked biome alpha. Sky colors, world generation and surface-only Pale Garden spawning retain their current behavior.
 
 ## Pale Garden spawning
 
@@ -96,4 +96,5 @@ python3 port/validate.py test-full-validation
 Re-running the optional cross-version noise test also requires Java 25 and the 26.3 runtime libraries. The recorded comparison is included.
 
 The tests create their own local, offline dedicated-server world. Upstream author metadata and the upstream WWOO license are retained in the replacement JAR and both supplied inputs.
+
 
