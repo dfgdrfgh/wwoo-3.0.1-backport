@@ -17,7 +17,7 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 - Windswept Forest keeps 3.0.1's autumnal vegetation and colors, with older geological and terrain details filling its unfinished parts.
 - Imported 3.0.1 features and templates use the `wwoocontent` namespace. Older fill-ins retain their separate `wythers` dependencies.
 - New codecs preserve nested rule fallthrough, skipped placement, sequence/overlay behavior, modern floating-point noise, placement modifiers, template animals, and scheduled block ticks. New plant-support tags are supported by the target version's block checks. Entity-only templates count as successful placements.
-- Modern biome colors and supported gameplay settings are converted. Cloud RGB uses a client hook with stable vanilla opacity, and dry foliage colors use TrueVanillaBackport's existing support. Frozen-ocean temperature modifiers and root-level creature spawn probabilities are preserved.
+- Modern biome colors and supported gameplay settings are converted. Dry foliage colors use TrueVanillaBackport's existing support. Frozen-ocean temperature modifiers and root-level creature spawn probabilities are preserved.
 - Wolf biome selectors are converted to 1.21.1's registry format, including a disjoint pale-wolf fallback. Baby wolf textures are already supplied and selected by the tested backport dependency.
 - Panda spawning matches the actual supplied 3.0.1 data: Dappled Forest has weight 10, Jungle has weight 1, and Bamboo Jungle/Sparse Jungle omit pandas. The source JAR does not make Dappled Forest completely exclusive.
 - The compatibility pack retains its supporting resources, but its older Pale Garden biome definition is removed. This prevents existing pack ordering from overriding the 3.0.1 landscaping and vegetation. TrueVanillaBackport's native Pale Garden plateau-placement compatibility fix remains active.
@@ -27,13 +27,9 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 - Plant support overrides run only while their main-pack marker is populated and the relevant support tags exist. Disabling the built-in packs restores ordinary plant checks; deliberate empty support tags remain restrictive.
 - The obsolete 2.6.7 add-on switches and packs are retired to match 3.0.1's pack/config selection. The remove-ores switch remains available.
 
-## Cloud transitions
+## Separate cloud mod
 
-Cloud RGB now follows the same camera position, quart-biome samples and native Gaussian weights as Minecraft 1.21.1's biome sky color. Moving farther across a biome boundary increases that biome's influence until the nearby samples all use its palette. Stopping holds the current mix; walking back reverses it immediately. There is no timed fade, remembered crossing or custom blend-radius setting. This uses the sky's existing local 6×6×6 quart-biome neighborhood, including vertical/diagonal boundaries. The clouds blend their own biome cloud colors, independently of the sky's RGB palette. Encoded biome alpha does not affect the weights or cloud opacity. The actual client noise-biome source is queried in the same way as sky rendering.
-
-Optional Sodium and Cirrus hooks apply the same sampled RGB through their replacement renderers. Cirrus receives the tint after its dimension/time/weather color calculation, so all layers and draw passes share it, including its fog-whitening path. Each renderer keeps its layer opacity and lighting settings; vanilla shader state is restored after each draw, including exceptions. World/dimension changes have no leftover fade state.
-
-Build `.16` additionally preserves Cirrus Fast's configured layer opacity near the sun. Cirrus's native shader previously raised cloud alpha toward 1 in its sunlight cone, overriding the opacity slider. A shader uniform disables only that alpha override for Fast layers; RGB lighting, weather/time opacity, lightning and Fancy behavior are retained. This applies to the native Cirrus shader, without a shader pack.
+Build `.17` removes all cloud rendering hooks, the Cirrus shader patch, cloud palettes and the temporary diagnostic from WWOO. Those features are now supplied by the separate client-only Biome Cloud Transitions mod. WWOO's sky colors and world generation remain unchanged. Replace the old WWOO JAR before installing the separate cloud mod.
 
 ## Pale Garden spawning
 
