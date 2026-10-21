@@ -59,8 +59,8 @@ public final class ContentPort  {
         event.register(Registries.FEATURE, id("template"), () -> new TemplateFeature());
         event.register(Registries.FEATURE, id("spike"), () -> new SpikeFeature());
         event.register(Registries.FEATURE, id("simple_block"), () -> new ModernSimpleBlockFeature());
-        if (event.getRegistryKey().equals(Registries.BLOCKSTATE_PROVIDER_TYPE)) { ModernNoiseProvider.TYPE = makeType(BlockStateProviderType.class, ModernNoiseProvider.MAP.codec()); event.register(Registries.BLOCKSTATE_PROVIDER_TYPE, id("modern_noise"), () -> ModernNoiseProvider.TYPE); }
-        if (event.getRegistryKey().equals(Registries.BLOCKSTATE_PROVIDER_TYPE)) { RULE_TYPE = makeType(BlockStateProviderType.class, RuleProvider.MAP.codec()); event.register(Registries.BLOCKSTATE_PROVIDER_TYPE, id("rule_based"), () -> RULE_TYPE); }
+        if (event.getRegistryKey().equals(Registries.BLOCK_STATE_PROVIDER_TYPE)) { ModernNoiseProvider.TYPE = makeType(BlockStateProviderType.class, ModernNoiseProvider.MAP.codec()); event.register(Registries.BLOCK_STATE_PROVIDER_TYPE, id("modern_noise"), () -> ModernNoiseProvider.TYPE); }
+        if (event.getRegistryKey().equals(Registries.BLOCK_STATE_PROVIDER_TYPE)) { RULE_TYPE = makeType(BlockStateProviderType.class, RuleProvider.MAP.codec()); event.register(Registries.BLOCK_STATE_PROVIDER_TYPE, id("rule_based"), () -> RULE_TYPE); }
         if (event.getRegistryKey().equals(Registries.TREE_DECORATOR_TYPE)) { GROUND_TYPE = makeType(TreeDecoratorType.class, GroundDecorator.MAP.codec()); event.register(Registries.TREE_DECORATOR_TYPE, id("place_on_ground"), () -> GROUND_TYPE); }
         if (event.getRegistryKey().equals(Registries.BLOCK_PREDICATE_TYPE)) { BIOME_TYPE = () -> BiomePredicate.MAP.codec(); event.register(Registries.BLOCK_PREDICATE_TYPE, id("matching_biomes"), () -> BIOME_TYPE); }
         if (event.getRegistryKey().equals(Registries.BLOCK_PREDICATE_TYPE)) { HEIGHT_TYPE = () -> HeightPredicate.MAP.codec(); event.register(Registries.BLOCK_PREDICATE_TYPE, id("height_range"), () -> HEIGHT_TYPE); }
