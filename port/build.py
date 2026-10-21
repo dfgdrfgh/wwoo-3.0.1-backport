@@ -19,7 +19,7 @@ REMAP={
  **{'wythers:feature/fauna/parrots/'+color+'_parakeets':'wwoocontent:fauna/parrots/'+color+'_parakeets' for color in ['green','scarlet','hyacinth','blue_and_yellow']}
 }
 vanilla_new=zipfile.ZipFile(ROOT/'toolchain/minecraft-26.3.jar')
-vanilla_old=zipfile.ZipFile(ROOT/'minecraft-named.jar')
+vanilla_old=zipfile.ZipFile(os.environ.get('WWOO_TARGET_RESOURCES',ROOT/'minecraft-named.jar'))
 vanilla_legacy=set()
 FEATURE_KEYS={'feature','features','default','vegetation_feature','data'}
 vanilla_imports={}
@@ -290,6 +290,18 @@ for namespace,path in sorted([('wythers',p) for p in templates]+[('minecraft',p)
     entries[PREFIX+(NS if namespace=='wythers' else 'minecraft')+'/structure/'+path+'.nbt']=nbt.write(name,root)
 import resources
 resources.apply_resources(entries,old,new,vanilla_new,put,visual_attributes,convert)
+# Reuse the exact validated main-branch content conversion for the Forge port.
+# Forge performs its own loader packaging and 1.20.1 schema conversion afterwards.
+if os.environ.get('WWOO_RESOURCES_ONLY'):
+    from preserve_ice import patch_entries
+    patch_entries(entries)
+    output=Path(os.environ['WWOO_RESOURCES_ONLY'])
+    output.parent.mkdir(parents=True,exist_ok=True)
+    with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as z:
+        for n,data in entries.items():
+            if not n.endswith('.class') and n != 'fabric.mod.json':z.writestr(n,data)
+    print(json.dumps({'output':str(output),'imported_json':len(selected),'templates':len(templates)}))
+    raise SystemExit(0)
 meta=json.loads(old.read('fabric.mod.json'));meta['version']='3.0.1+backport.1.21.1.19';meta['entrypoints']['main'].append('com.zachminecraft.wwoocontent.ContentPort');meta['depends']['minecraft']='~1.21.1';meta['depends']['java']='>=21';meta['depends']['vanillabackport']='>=1.2'
 meta['mixins']=meta.get('mixins',[])+['wwoo-content.common.mixins.json',{'config':'wwoo-content.client.mixins.json','environment':'client'}]
 put('fabric.mod.json',meta)

@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="CC BY-NC-ND 4.0 (upstream content); see upstream attribution"
+[[mods]]
+modId="wwoo"
+version="3.0.1-backport.1.20.1.1"
+displayName="William Wythers' Overhauled Overworld"
+authors="William Wythers, Cristelknight; backport contributors"
+description='''WWOO 3.0.1 content and main-branch backport fixes for Forge 1.20.1.'''
+[[dependencies.wwoo]]
+modId="forge"
+mandatory=true
+versionRange="[47.3,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.wwoo]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.wwoo]]
+modId="vanillabackport"
+mandatory=true
+versionRange="[1.2,)"
+ordering="AFTER"
+side="BOTH"

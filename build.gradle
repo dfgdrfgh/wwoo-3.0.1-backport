@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7-SNAPSHOT'
+}
+version = '3.0.1-backport.1.20.1.1'
+group = 'com.zachminecraft'
+base { archivesName = 'wwoo-forge-1.20.1' }
+java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    runs {
+        server {
+            workingDirectory project.file('forge/run')
+            args '--nogui'
+            mods { wwoo { source sourceSets.main } }
+        }
+    }
+}
+sourceSets.main {
+    java.srcDirs = ['forge/src/main/java']
+    resources.srcDirs = ['forge/src/main/resources', 'forge/build/generated-resources']
+}
+repositories { mavenCentral() }
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.3.22'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+mixin { add sourceSets.main, 'wwoo-forge.refmap.json'; config 'wwoo-forge.mixins.json' }
+tasks.register('prepareContent', Exec) {
+    commandLine 'python3', 'forge/resources.py'
+    inputs.files fileTree('inputs'), fileTree('port').matching { include '*.py' }, file('forge/resources.py')
+    outputs.dir 'forge/build/generated-resources'
+}
+processResources.dependsOn prepareContent
+jar {
+    manifest.attributes(['MixinConfigs': 'wwoo-forge.mixins.json'])
+    finalizedBy 'reobfJar'
+}
