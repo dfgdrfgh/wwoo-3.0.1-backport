@@ -41,7 +41,7 @@ public final class WWOOForge {
         var root = ModList.get().getModFileById("wwoo").getFile().findResource("resources", path);
         event.addRepositorySource(consumer -> {
             var pack = Pack.readMetaAndCreate("wwoo:" + path, Component.literal(title), required,
-                id -> new PathPackResources(id, root, false), PackType.SERVER_DATA, Pack.Position.TOP, PackSource.BUILT_IN);
+                id -> new PathPackResources(id, false, root), PackType.SERVER_DATA, Pack.Position.TOP, PackSource.BUILT_IN);
             if (pack == null) throw new IllegalStateException("Invalid bundled WWOO pack " + path);
             consumer.accept(pack);
         });
