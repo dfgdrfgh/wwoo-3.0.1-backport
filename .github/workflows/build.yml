@@ -35,9 +35,6 @@ jobs:
       - name: Build WWOO for Fabric 1.21.1
         run: python3 port/build.py
 
-      - name: Trace Pale Garden vegetation dependencies
-        run: python3 tests/pale_garden_resource_diagnostic.py
-
       - name: Validate resulting JAR
         run: |
           python3 -m zipfile -t wwoo-fabric-1.21.1-3.0.1-backport.jar
