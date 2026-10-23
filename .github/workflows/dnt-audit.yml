@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compare official 1.21.1 DnT files with WWOO
-        run: python3 tests/dnt_city_audit.py
+        run: |\n          python3 tests/dnt_city_audit.py\n          python3 tests/dnt_center_compare.py
