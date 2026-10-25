@@ -12,12 +12,11 @@ Use a new test world to inspect the rewrite. Worldgen changes affect newly gener
 
 ## Standalone and optional backport compatibility
 
-On Fabric 1.21.1, **TrueVanillaBackport is now optional**. Cristel Lib is still required.
+On Fabric 1.21.1, TrueVanillaBackport is optional. Cristel Lib remains required.
 
-- With `vanillabackport` present, the original WWOO 3.0.1 conversion and conditional VanillaBackport integration pack are used; no worldgen changes are made to this existing combination.
-- Without `vanillabackport`, WWOO loads an isolated copy of its original 2.6.7-native 1.21.1 worldgen pack. This excludes 3.0.1 conversion entries that require backported blocks, foliage, or feature codecs.
-- There is no version gate on `vanillabackport`, but a matching mod ID alone does not guarantee every required content feature is available. Backport versions that omit WWOO's referenced blocks or pale-garden assets still require compatibility validation. The fallback is not a universal automatic biome-capability detector.
-- Switching between the standalone and integrated modes can change newly generated terrain. Existing loaded chunks are not automatically regenerated; back up worlds before switching mod combinations.
+WWOO uses its **3.0.1 worldgen** with or without VanillaBackport. With VanillaBackport installed, the regular 3.0.1 worldgen pack and its Pale Garden compatibility pack activate. Without VanillaBackport, only unavailable backported biome definitions are omitted; features referring to blocks absent from vanilla 1.21.1 receive safe standalone substitutions. The original biome/terrain selections stay on the 3.0.1 definitions rather than reverting to WWOO 2.6.7.
+
+The `vanillabackport` version is not pinned, but integration still assumes the registry entries referenced by WWOO actually exist. Test unfamiliar forks and back up existing worlds when changing worldgen mod combinations.
 
 ## Content and compatibility
 
