@@ -43,6 +43,8 @@ def unavailable_block(v, blocks, key=""):
     elif isinstance(v,list):
         return any(unavailable_block(item,blocks,key) for item in v)
     elif isinstance(v,str):
+        if v in {"minecraft:cinnabar","minecraft:sulfur","cinnabar","sulfur"}:
+            return True
         if key=="type" and v in UNAVAILABLE_1211_CODECS:return True
         if key in ("Name","block","blocks","state","output_state","base_block","pointed_block"):
             name=v.removeprefix("minecraft:")
