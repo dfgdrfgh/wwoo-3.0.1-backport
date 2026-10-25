@@ -22,7 +22,7 @@ def builtin_ids(root, type_name):
     ids=set()
     for line in text.splitlines():
         if " public static final " in " "+line and ";" in line:
-            match=re.search(r"\\b([A-Z][A-Z0-9_]+);$",line.strip())
+            match=re.search(r"\b([A-Z][A-Z0-9_]+);$",line.strip())
             if match:ids.add(match.group(1).lower())
     if len(ids)<40:
         raise RuntimeError("Cannot inspect vanilla Minecraft 1.21.1 "+type_name+" registry: "+repr(sorted(ids)))
