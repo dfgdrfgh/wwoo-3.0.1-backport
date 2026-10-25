@@ -90,6 +90,22 @@ def apply_resources(entries,old,new,vanilla,put,visual_attributes,convert):
     # Select the 3.0.1 pack set, plus the requested existing Pale Garden compatibility.
     packs=json.loads(new.read('data/cristellib/data_pack/load_packs.json'))
     compat=next(p for p in json.loads(old.read('data/cristellib/data_pack/load_packs.json'))['packs'] if 'vanilla_backport_compat' in p['location'])
+    # Cristel Lib evaluates pack conditions before the world-gen registry is built.
+    # Keep both modes disjoint: older, native 1.21.1 WWOO worldgen when no
+    # VanillaBackport is present; the existing 3.0.1 port when it is installed.
+    # This avoids leaving modern block/feature references in the no-backport path.
+    main=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_main')
+    main['condition']={'type':'mod_loaded','modid':'vanillabackport'}
+    standalone={'location':'wwoo:resources/wwoo_standalone',
+                'display_name':'WWOO standalone 1.21.1 worldgen',
+                'condition':{'type':'not','condition':{'type':'mod_loaded','modid':'vanillabackport'}}}
+    packs['packs'].append(standalone)
+    for source in old.namelist():
+        if source.startswith('resources/wwoo_main/') and not source.endswith('/'):
+            target=source.replace('resources/wwoo_main/','resources/wwoo_standalone/',1)
+            entries[target]=old.read(source)
+    put('resources/wwoo_standalone/pack.mcmeta',{'pack':{'pack_format':48,
+        'description':'WWOO standalone 1.21.1 fallback without VanillaBackport'}})
     packs['packs'].insert(1,compat);put('data/cristellib/data_pack/load_packs.json',packs)
     # Existing worlds/configs can load compat after main. Its old Pale Garden
     # biome would hide all 3.0.1 landscaping and vegetation. Keep other compat
