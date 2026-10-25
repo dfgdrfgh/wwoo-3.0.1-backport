@@ -90,39 +90,22 @@ def apply_resources(entries,old,new,vanilla,put,visual_attributes,convert):
     # Select the 3.0.1 pack set, plus the requested existing Pale Garden compatibility.
     packs=json.loads(new.read('data/cristellib/data_pack/load_packs.json'))
     compat=next(p for p in json.loads(old.read('data/cristellib/data_pack/load_packs.json'))['packs'] if 'vanilla_backport_compat' in p['location'])
-    # Cristel Lib evaluates pack conditions before the world-gen registry is built.
-    # Keep both modes disjoint: older, native 1.21.1 WWOO worldgen when no
-    # VanillaBackport is present; the existing 3.0.1 port when it is installed.
-    # This avoids leaving modern block/feature references in the no-backport path.
+    # Keep the full WWOO 3.0.1 conversion in both modes. Only the resources
+    # requiring features missing from vanilla 1.21.1 are adapted when
+    # VanillaBackport is absent.
+    present={'type':'mod_loaded','modid':'vanillabackport'}
+    absent={'type':'not','condition':present}
     main=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_main')
-    main['condition']={'type':'mod_loaded','modid':'vanillabackport'}
+    main['condition']=present
     standalone={'location':'wwoo:resources/wwoo_standalone',
-                'display_name':'WWOO standalone 1.21.1 worldgen',
-                'condition':{'type':'not','condition':{'type':'mod_loaded','modid':'vanillabackport'}}}
+                'display_name':'WWOO 3.0.1 standalone worldgen',
+                'condition':absent}
     packs['packs'].append(standalone)
-    # Keep the remove-common-stone-patches pack paired with the worldgen mode
-    # it was built against. Cross-loading it makes older configured features
-    # point at missing wwoocontent:vanilla/ore_* registries.
-    ores=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_remove_ores')
-    ores_config=ores['condition']
-    ores['condition']=[ores_config,{'type':'mod_loaded','modid':'vanillabackport'}]
-    standalone_ores={'location':'wwoo:resources/wwoo_standalone_remove_ores',
-                     'display_name':'WWOO standalone common stone patches',
-                     'condition':[ores_config,standalone['condition']]}
-    packs['packs'].append(standalone_ores)
-    for source in old.namelist():
-        if source.startswith('resources/wwoo_remove_ores/') and not source.endswith('/'):
-            target=source.replace('resources/wwoo_remove_ores/','resources/wwoo_standalone_remove_ores/',1)
-            entries[target]=old.read(source)
-    put('resources/wwoo_standalone_remove_ores/pack.mcmeta',{'pack':{'pack_format':48,
-        'description':'WWOO standalone common stone patches'}})
-    for source in old.namelist():
-        if source.startswith('resources/wwoo_main/') and not source.endswith('/'):
-            target=source.replace('resources/wwoo_main/','resources/wwoo_standalone/',1)
-            entries[target]=old.read(source)
-    put('resources/wwoo_standalone/pack.mcmeta',{'pack':{'pack_format':48,
-        'description':'WWOO standalone 1.21.1 fallback without VanillaBackport'}})
-    packs['packs'].insert(1,compat);put('data/cristellib/data_pack/load_packs.json',packs)
+    from standalone import install
+    from pathlib import Path
+    install(entries,old,Path(__file__).resolve().parent.parent,put)
+    packs['packs'].insert(1,compat)
+    put('data/cristellib/data_pack/load_packs.json',packs)
     # Existing worlds/configs can load compat after main. Its old Pale Garden
     # biome would hide all 3.0.1 landscaping and vegetation. Keep other compat
     # resources, but give the biome one authoritative definition in main.
