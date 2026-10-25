@@ -28,15 +28,25 @@ def builtin_ids(root, type_name):
         raise RuntimeError("Cannot inspect vanilla Minecraft 1.21.1 "+type_name+" registry: "+repr(sorted(ids)))
     return ids
 
+UNAVAILABLE_1211_CODECS={
+    "minecraft:attached_to_logs","minecraft:shelf_mushroom",
+    "minecraft:poplar_foliage_placer","minecraft:poplar_trunk_placer",
+    "minecraft:weighted_random_selector","minecraft:fallen_tree",
+    "minecraft:speleothem_cluster","minecraft:speleothem",
+}
+
 def unavailable_block(v, blocks, key=""):
     if isinstance(v,dict):
+        if v.get("type") in UNAVAILABLE_1211_CODECS:return True
         for k,value in v.items():
             if unavailable_block(value,blocks,k):return True
     elif isinstance(v,list):
         return any(unavailable_block(item,blocks,key) for item in v)
-    elif isinstance(v,str) and v.startswith("minecraft:"):
+    elif isinstance(v,str):
+        if key=="type" and v in UNAVAILABLE_1211_CODECS:return True
         if key in ("Name","block","blocks","state","output_state","base_block","pointed_block"):
-            return v.split(":",1)[1] not in blocks
+            name=v.removeprefix("minecraft:")
+            return ":" not in name and name not in blocks
     return False
 
 def compatible(v):
