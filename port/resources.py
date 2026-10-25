@@ -100,6 +100,22 @@ def apply_resources(entries,old,new,vanilla,put,visual_attributes,convert):
                 'display_name':'WWOO standalone 1.21.1 worldgen',
                 'condition':{'type':'not','condition':{'type':'mod_loaded','modid':'vanillabackport'}}}
     packs['packs'].append(standalone)
+    # Keep the remove-common-stone-patches pack paired with the worldgen mode
+    # it was built against. Cross-loading it makes older configured features
+    # point at missing wwoocontent:vanilla/ore_* registries.
+    ores=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_remove_ores')
+    ores_config=ores['condition']
+    ores['condition']=[ores_config,{'type':'mod_loaded','modid':'vanillabackport'}]
+    standalone_ores={'location':'wwoo:resources/wwoo_standalone_remove_ores',
+                     'display_name':'WWOO standalone common stone patches',
+                     'condition':[ores_config,standalone['condition']]}
+    packs['packs'].append(standalone_ores)
+    for source in old.namelist():
+        if source.startswith('resources/wwoo_remove_ores/') and not source.endswith('/'):
+            target=source.replace('resources/wwoo_remove_ores/','resources/wwoo_standalone_remove_ores/',1)
+            entries[target]=old.read(source)
+    put('resources/wwoo_standalone_remove_ores/pack.mcmeta',{'pack':{'pack_format':48,
+        'description':'WWOO standalone common stone patches'}})
     for source in old.namelist():
         if source.startswith('resources/wwoo_main/') and not source.endswith('/'):
             target=source.replace('resources/wwoo_main/','resources/wwoo_standalone/',1)
