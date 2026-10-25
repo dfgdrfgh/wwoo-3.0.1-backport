@@ -10,6 +10,15 @@ Original broad validation: Fabric Loader 0.18.5, Fabric API 0.116.17+1.21.1, Cri
 
 Use a new test world to inspect the rewrite. Worldgen changes affect newly generated chunks.
 
+## Standalone and optional backport compatibility
+
+On Fabric 1.21.1, **TrueVanillaBackport is now optional**. Cristel Lib is still required.
+
+- With `vanillabackport` present, the original WWOO 3.0.1 conversion and conditional VanillaBackport integration pack are used; no worldgen changes are made to this existing combination.
+- Without `vanillabackport`, WWOO loads an isolated copy of its original 2.6.7-native 1.21.1 worldgen pack. This excludes 3.0.1 conversion entries that require backported blocks, foliage, or feature codecs.
+- There is no version gate on `vanillabackport`, but a matching mod ID alone does not guarantee every required content feature is available. Backport versions that omit WWOO's referenced blocks or pale-garden assets still require compatibility validation. The fallback is not a universal automatic biome-capability detector.
+- Switching between the standalone and integrated modes can change newly generated terrain. Existing loaded chunks are not automatically regenerated; back up worlds before switching mod combinations.
+
 ## Content and compatibility
 
 - The complete supplied 3.0.1 biome definitions, worldgen features, block-state providers, weighted structure templates, loot tables, and biome/block/structure tags are converted to 1.21.1 formats. This includes the newer bedrock sealing and cliff generation.
