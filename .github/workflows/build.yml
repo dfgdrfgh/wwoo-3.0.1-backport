@@ -109,7 +109,7 @@ jobs:
           regex: .*fabric.*
           mc-runtime-test: fabric
           java: '21'
-          fabric-api: '0.116.17+1.21.1'
+          fabric-api: '0.116.17'
           fabric-gametest-api: none
           xvfb: true
           headlessmc-command: '--retries 3 --jvm -Djava.awt.headless=true -DMcRuntimeGameTest=false'
