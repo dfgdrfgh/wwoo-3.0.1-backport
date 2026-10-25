@@ -41,11 +41,14 @@ def unavailable_block(v, blocks, key=""):
 
 def compatible(v):
     if isinstance(v,dict):
-        if v.get("type")=="minecraft:trapezoid":
-            # Vanilla 1.21.1 does not expose the 26.3 trapezoid int codec.
-            # Preserve its bounds using a supported distribution.
-            return {"type":"minecraft:uniform","min_inclusive":v["min"],
-                    "max_inclusive":v["max"]}
+        if v.get("type")=="minecraft:trapezoid" and (
+                ("min" in v and "max" in v) or
+                ("min_inclusive" in v and "max_inclusive" in v)):
+            # Only int providers have min/max bounds. Do not rewrite unrelated
+            # worldgen elements that happen to share this type name.
+            return {"type":"minecraft:uniform",
+                    "min_inclusive":v.get("min",v.get("min_inclusive")),
+                    "max_inclusive":v.get("max",v.get("max_inclusive"))}
         return {k:compatible(value) for k,value in v.items()}
     if isinstance(v,list):return [compatible(item) for item in v]
     return v
