@@ -90,6 +90,28 @@ def apply_resources(entries,old,new,vanilla,put,visual_attributes,convert):
     # Select the 3.0.1 pack set, plus the requested existing Pale Garden compatibility.
     packs=json.loads(new.read('data/cristellib/data_pack/load_packs.json'))
     compat=next(p for p in json.loads(old.read('data/cristellib/data_pack/load_packs.json'))['packs'] if 'vanilla_backport_compat' in p['location'])
+    # Keep 3.0.1 unchanged when VanillaBackport is available. Without it,
+    # reuse the original standalone 1.21.1 WWOO terrain pack verbatim.
+    present={'type':'mod_loaded','modid':'vanillabackport'}
+    absent={'type':'not','condition':present}
+    modern=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_main')
+    modern['condition']=present
+    # A list of Cristel Lib conditions is logical AND.
+    remove=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_remove_ores')
+    remove_config=remove['condition']
+    remove['condition']=[remove_config,present]
+    packs['packs'].append({'location':'wwoo:resources/wwoo_legacy_remove_ores',
+                           'display_name':'WWOO original standalone remove ores',
+                           'condition':[remove_config,absent]})
+    packs['packs'].append({'location':'wwoo:resources/wwoo_legacy',
+                           'display_name':'WWOO original 1.21.1 standalone worldgen',
+                           'condition':absent})
+    for name in old.namelist():
+        for original,legacy in [('wwoo_main','wwoo_legacy'),
+                                ('wwoo_remove_ores','wwoo_legacy_remove_ores')]:
+            prefix='resources/'+original+'/'
+            if name.startswith(prefix) and not name.endswith('/'):
+                entries['resources/'+legacy+'/'+name[len(prefix):]]=old.read(name)
     packs['packs'].insert(1,compat);put('data/cristellib/data_pack/load_packs.json',packs)
     # Existing worlds/configs can load compat after main. Its old Pale Garden
     # biome would hide all 3.0.1 landscaping and vegetation. Keep other compat
