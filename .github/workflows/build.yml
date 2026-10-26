@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main, 'test/vanillabackport-optional-baseline-20261025']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
