@@ -95,12 +95,13 @@ with log.open("w") as out:
                     "gamerule spawnChunkRadius 0\n"
                     "execute in wwootest:dappled_forest run forceload add 0 0 31 31\n"
                     "execute in minecraft:overworld run forceload add 0 0 31 31\n"
+                    "execute in minecraft:overworld run locate biome minecraft:dappled_forest\n"
                     "say WWOO_TWO_FORK_TEST_COMMANDS_SENT\n"
                 )
                 process.stdin.flush()
                 sent = True
                 issued_at = elapsed
-            if sent and not stopped and elapsed > issued_at + 45:
+            if sent and not stopped and elapsed > issued_at + 105:
                 process.stdin.write("save-all flush\nstop\n")
                 process.stdin.flush()
                 stopped = True
@@ -118,6 +119,7 @@ with log.open("w") as out:
 
 trace = log.read_text(errors="replace")
 assert "WWOO_TWO_FORK_TEST_COMMANDS_SENT" in trace, "Server never processed test commands"
+print("DAPPLED_NATURAL_LOCATE_OUTPUT", [line for line in trace.splitlines() if "dappled_forest" in line or "Could not find" in line][-15:], flush=True)
 assert "Saving chunks for level" in trace or "All dimensions are saved" in trace, "World was not saved"
 assert "Unknown dimension" not in trace and "Unknown registry key" not in trace, "Registry/dimension errors found in console"
 
