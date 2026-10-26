@@ -69,12 +69,14 @@ java = str(Path(javadir) / "bin" / "java") if javadir else (
 )
 assert java
 log = folder / "console.log"
-command = [
-    java, "-Xmx4G", "-Djava.security.egd=file:/dev/./urandom",
-    "-Dfabric.gameJarPath=" + str(ROOT / "test-runtime/versions/1.21.1/server-1.21.1.jar"),
-    "-cp", (ROOT / "test-runtime/launch-classpath.txt").read_text(),
-    "net.fabricmc.loader.impl.launch.knot.KnotServer", "nogui",
-]
+# Use Fabric's supported production server launcher. The bootstrap's raw
+# Mojang jar is in the official namespace, not the intermediary runtime expected
+# by Fabric API mods.
+launcher = ROOT / "test-two-forks-deps" / "fabric-server-launch.jar"
+assert launcher.is_file(), "Missing official Fabric server launcher"
+shutil.copy2(launcher, folder / "fabric-server-launch.jar")
+command = [java, "-Xmx4G", "-Djava.security.egd=file:/dev/./urandom",
+           "-jar", "fabric-server-launch.jar", "nogui"]
 started = False
 sent = False
 stopped = False
