@@ -107,6 +107,7 @@ with log.open("w") as out:
             time.sleep(1)
         print("Server exit code", process.returncode, flush=True)
         if process.returncode != 0 or not started or not stopped:
+            print("TWO_FORK_SERVER_FAILURE_LOG_TAIL:\n" + "\n".join(log.read_text(errors="replace").splitlines()[-180:]), flush=True)
             raise RuntimeError("Two-fork server failed before completing world generation")
     finally:
         if process.poll() is None:
