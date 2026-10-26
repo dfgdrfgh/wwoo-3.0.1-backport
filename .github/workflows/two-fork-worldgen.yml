@@ -1,0 +1,94 @@
+name: Test WWOO and TrueVanillaBackport only
+
+on:
+  push:
+    branches: [test/two-fork-worldgen-20261026]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  two-fork-worldgen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bootstrap Fabric 1.21.1 runtime
+        run: python3 port/bootstrap.py
+      - name: Build exact WWOO source on test branch
+        run: python3 port/build.py
+      - name: Download latest TrueVanillaBackport Fabric fork build
+        uses: actions/download-artifact@v4
+        with:
+          repository: dfgdrfgh/TrueVanillaBackport
+          run-id: 40164702400
+          name: VanillaBackport-1.21.1-fabric
+          github-token: ${{ github.token }}
+          path: test-two-forks-deps/vanillabackport-artifact
+      - name: Stage both forks and only necessary libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-two-forks-deps run/mods
+          mapfile -t jars < <(find test-two-forks-deps/vanillabackport-artifact -type f -name '*.jar' | sort)
+          printf 'VanillaBackport artifact jars:\n%s\n' "${jars[*]}"
+          test "${#jars[@]}" -eq 1
+          cp "${jars[0]}" test-two-forks-deps/VanillaBackport.jar
+          curl --fail --location --silent --show-error --retry 3 \
+            'https://cdn.modrinth.com/data/P7dR8mSH/versions/Mys3P7lK/fabric-api-0.116.17%2B1.21.1.jar' \
+            -o test-two-forks-deps/fabric-api.jar
+          echo '98c478217da19181f0e4df3ea6c2da6bdbda271c7544a4aea048513a49b444f1ff5b71dc0df6303017c48e8ff69b7bb6af6179bdf0d0e09ab3c1ee08411857a8  test-two-forks-deps/fabric-api.jar' | sha512sum -c -
+          cp wwoo-fabric-1.21.1-3.0.1-backport.jar run/mods/
+          cp test-dependencies/cristellib-fabric-1.21.1-3.1.7.jar run/mods/
+          cp test-two-forks-deps/VanillaBackport.jar run/mods/
+          python3 - <<'PY'
+          import json,zipfile,hashlib
+          from pathlib import Path
+          mods=list(Path('run/mods').glob('*.jar'))
+          assert len(mods)==3, mods
+          ids={json.loads(zipfile.ZipFile(p).read('fabric.mod.json'))['id'] for p in mods}
+          assert ids=={'wwoo','cristellib','vanillabackport'},ids
+          for p in mods:
+              m=json.loads(zipfile.ZipFile(p).read('fabric.mod.json'))
+              print('TWO_FORK_MOD',m['id'],m['version'],hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
+      - name: Generate and inspect Dappled Forest chunks on a real Fabric server
+        run: python3 tests/two_fork_worldgen.py
+      - name: Create a virtual display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0
+      - name: Launch both forks in real Fabric singleplayer
+        uses: headlesshq/mc-runtime-test@645691de43520240e1d1e45b4b9a4d9cd9c294a4
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        with:
+          mc: '1.21.1'
+          modloader: fabric
+          regex: .*fabric.*
+          mc-runtime-test: fabric
+          java: '21'
+          fabric-api: '0.116.17'
+          fabric-gametest-api: none
+          xvfb: true
+          headlessmc-command: '--retries 3 --jvm -Djava.awt.headless=true -DMcRuntimeGameTest=false'
+          cache-mc: github
+      - name: Upload worldgen logs for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: two-fork-worldgen-logs
+          path: |
+            test-two-forks/console.log
+            run/logs/latest.log
+            run/crash-reports/*.txt
+          if-no-files-found: ignore
