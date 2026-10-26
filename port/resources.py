@@ -96,12 +96,22 @@ def apply_resources(entries,old,new,vanilla,put,visual_attributes,convert):
     absent={'type':'not','condition':present}
     modern=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_main')
     modern['condition']=present
+    # A list of Cristel Lib conditions is logical AND.
+    remove=next(p for p in packs['packs'] if p['location']=='wwoo:resources/wwoo_remove_ores')
+    remove_config=remove['condition']
+    remove['condition']=[remove_config,present]
+    packs['packs'].append({'location':'wwoo:resources/wwoo_legacy_remove_ores',
+                           'display_name':'WWOO original standalone remove ores',
+                           'condition':[remove_config,absent]})
     packs['packs'].append({'location':'wwoo:resources/wwoo_legacy',
                            'display_name':'WWOO original 1.21.1 standalone worldgen',
                            'condition':absent})
     for name in old.namelist():
-        if name.startswith('resources/wwoo_main/') and not name.endswith('/'):
-            entries['resources/wwoo_legacy/'+name[len('resources/wwoo_main/'):]]=old.read(name)
+        for original,legacy in [('wwoo_main','wwoo_legacy'),
+                                ('wwoo_remove_ores','wwoo_legacy_remove_ores')]:
+            prefix='resources/'+original+'/'
+            if name.startswith(prefix) and not name.endswith('/'):
+                entries['resources/'+legacy+'/'+name[len(prefix):]]=old.read(name)
     packs['packs'].insert(1,compat);put('data/cristellib/data_pack/load_packs.json',packs)
     # Existing worlds/configs can load compat after main. Its old Pale Garden
     # biome would hide all 3.0.1 landscaping and vegetation. Keep other compat
