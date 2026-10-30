@@ -51,6 +51,7 @@ jobs:
           python3 tests/resource_conflicts.py
           python3 tests/dry_foliage.py
           python3 tests/ice_preservation.py
+          python3 tests/world_height_audit.py
           python3 tests/pale_garden_spawning.py
           python3 tests/cloud_baseline.py
           python3 tests/cloud_baseline_runtime.py
