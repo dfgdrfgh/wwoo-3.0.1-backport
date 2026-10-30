@@ -85,6 +85,9 @@ jobs:
           print('VANILLABACKPORT_TEST_JAR',target, target.stat().st_size)
           PY
 
+      - name: Install required Platform library for VanillaBackport
+        run: python3 tests/download_platform.py test-dependencies
+
       - name: Test Modrinth Y2032 with WWOO and VanillaBackport
         run: python3 port/smoke.py test-modrinth-2032-with-tvb modrinth
 
