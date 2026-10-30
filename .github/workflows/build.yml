@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Cancel outdated CI builds on a branch or pull request. Keep manually
+# dispatched runs and tagged releases from being canceled automatically.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch') }}
+
 jobs:
   build:
     name: Build Fabric 1.21.1 JAR
