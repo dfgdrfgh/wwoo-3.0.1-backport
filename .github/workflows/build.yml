@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main, fix/expanded-overworld-height]
+    branches: [main, fix/expanded-overworld-height, test/modrinth-height-with-vanillabackport]
   workflow_dispatch:
 
 permissions:
@@ -54,10 +54,39 @@ jobs:
           python3 tests/world_height_audit.py
           python3 port/smoke.py test-extended-height height
           python3 port/smoke.py test-modrinth-2032 modrinth
+          # Use the latest successfully built Fabric 1.21.1 fork artifact.
+          # It must be downloaded into test-dependencies before the mod test.
+          echo "Modrinth standalone height regression completed."
           python3 tests/pale_garden_spawning.py
           python3 tests/cloud_baseline.py
           python3 tests/cloud_baseline_runtime.py
           sha256sum wwoo-fabric-1.21.1-3.0.1-backport.jar
+
+      - name: Fetch TrueVanillaBackport 1.21.1 Fabric artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 41093367986 --repo dfgdrfgh/TrueVanillaBackport --name VanillaBackport-1.21.1-fabric --dir test-dependencies
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile,json
+          candidates=[p for p in Path('test-dependencies').rglob('*.jar') if p.name!='cristellib-fabric-1.21.1-3.1.7.jar']
+          accepted=[]
+          for p in candidates:
+              with zipfile.ZipFile(p) as jar:
+                  if 'fabric.mod.json' not in jar.namelist():continue
+                  meta=json.loads(jar.read('fabric.mod.json'))
+                  if meta.get('id')=='vanillabackport':accepted.append(p)
+          assert len(accepted)==1, 'Expected exactly one Fabric VanillaBackport JAR: '+repr(candidates)
+          jar=accepted[0]
+          target=Path('test-dependencies/vanillabackport-testing.jar')
+          if jar!=target:jar.replace(target)
+          print('VANILLABACKPORT_TEST_JAR',target, target.stat().st_size)
+          PY
+
+      - name: Test Modrinth Y2032 with WWOO and VanillaBackport
+        run: python3 port/smoke.py test-modrinth-2032-with-tvb modrinth
 
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4
