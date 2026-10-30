@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main, fix/expanded-overworld-height, test/modrinth-height-with-vanillabackport]
+    branches: [main, fix/expanded-overworld-height, test/modrinth-height-with-vanillabackport, test/modrinth-2032-fabric-mod]
   workflow_dispatch:
 
 permissions:
@@ -90,6 +90,9 @@ jobs:
 
       - name: Test Modrinth Y2032 with WWOO and VanillaBackport
         run: python3 port/smoke.py test-modrinth-2032-with-tvb modrinth
+
+      - name: Test Modrinth Y2032 Fabric JAR with WWOO and VanillaBackport
+        run: python3 port/smoke.py test-modrinth-2032-fabric-mod modrinth-jar
 
       - name: Upload installable mod JAR
         uses: actions/upload-artifact@v4

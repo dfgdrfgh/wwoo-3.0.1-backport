@@ -6,7 +6,7 @@ mods=folder/'mods';mods.mkdir(exist_ok=True)
 for p in (root/'test-dependencies').glob('*.jar'):shutil.copy2(p,mods/p.name)
 # Run the actual expanded Overworld dimension in a dedicated Fabric server.
 height_mode=sys.argv[2] if len(sys.argv)>2 else ''
-height_probe=height_mode in ('height','modrinth')
+height_probe=height_mode in ('height','modrinth','modrinth-jar')
 if height_probe:
  import json,zipfile,urllib.request
  cache=root/'toolchain/lib/fabric-api-0.116.17+1.21.1.jar'
@@ -17,6 +17,8 @@ if height_probe:
  shutil.copy2(cache,mods/cache.name)
  if height_mode=='modrinth':
   subprocess.run([sys.executable,str(root/'tests/download_height_pack.py'),str(folder/'smoke/datapacks')],check=True)
+ elif height_mode=='modrinth-jar':
+  subprocess.run([sys.executable,str(root/'tests/download_height_mod.py'),str(mods)],check=True)
  else:
   pack=folder/'smoke/datapacks/world-height-test'
   (pack/'data/minecraft/dimension_type').mkdir(parents=True,exist_ok=True)
@@ -67,7 +69,7 @@ with log.open('w') as out:
     for biome in biomes:p.stdin.write(f'execute in wwoo_test:{biome} run forceload add 0 0 15 15\n')
     if height_probe:
      p.stdin.write('execute in minecraft:overworld run forceload add 0 0 15 15\n')
-     y=1900 if height_mode=='modrinth' else 400
+     y=1900 if height_mode.startswith('modrinth') else 400
      p.stdin.write(f'execute in minecraft:overworld run setblock 0 {y} 0 minecraft:gold_block\n')
      p.stdin.write(f'execute in minecraft:overworld if block 0 {y} 0 minecraft:gold_block run say WWOO_HEIGHT_{y}_PASS\n')
     p.stdin.write('execute in minecraft:overworld run forceload add -3264 -16 -3233 15\nexecute in minecraft:overworld run forceload add 416 -1200 447 -1169\nsay WWOO_GENERATION_COMMANDS_DONE\n')
@@ -86,7 +88,7 @@ with log.open('w') as out:
    print('WWOO server startup log:\\n'+log.read_text(errors='replace')[-24000:],flush=True)
    raise RuntimeError('WWOO integration server failed')
   if height_probe:
-   y=1900 if height_mode=='modrinth' else 400
+   y=1900 if height_mode.startswith('modrinth') else 400
    if f'WWOO_HEIGHT_{y}_PASS' not in log.read_text():
     raise RuntimeError(f'Extended height check failed: cannot place a block at Y={y}')
   if biomes:
