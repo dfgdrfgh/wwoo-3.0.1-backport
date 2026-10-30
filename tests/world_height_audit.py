@@ -18,7 +18,7 @@ def report(archive):
         names = z.namelist()
         data = []
         for name in names:
-            if not name.endswith(".json") or "/data/minecraft/" not in name:
+            if not name.endswith(".json") or "data/minecraft/" not in name:
                 continue
             relevant = any("/" + part + "/" in name for part in [
                 "dimension_type", "dimension", "noise_settings", "density_function",
@@ -54,7 +54,7 @@ def report(archive):
         print("=== ", archive.name, " ===")
         print(json.dumps(data, indent=2, default=str))
         print("minecraft density function JSON count:", sum(
-            "/data/minecraft/worldgen/density_function/" in n
+            "data/minecraft/worldgen/density_function/" in n
             for n in names
         ))
 
