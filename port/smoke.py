@@ -66,7 +66,9 @@ with log.open('w') as out:
    if elapsed>1200:raise TimeoutError('Server startup or shutdown exceeded 1200 seconds')
    time.sleep(1)
   print('Exit',p.returncode,'started',sent,flush=True)
-  if p.returncode!=0 or not sent:raise RuntimeError('WWOO integration server failed')
+  if p.returncode!=0 or not sent:
+   print('WWOO server startup log:\\n'+log.read_text(errors='replace')[-24000:],flush=True)
+   raise RuntimeError('WWOO integration server failed')
   if height_probe and 'WWOO_HEIGHT_512_PASS' not in log.read_text():
    raise RuntimeError('Extended world height failed: Y=400 not buildable with min_y=-64 and height=512')
   if biomes:
