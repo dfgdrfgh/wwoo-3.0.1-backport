@@ -39,18 +39,18 @@ if len(sys.argv)>2 and sys.argv[2]=='all':
   f.write_text(json.dumps({'type':'minecraft:overworld','generator':{'type':'minecraft:noise','settings':'minecraft:overworld','biome_source':{'type':'minecraft:fixed','biome':'minecraft:'+biome}}}))
 log=folder/'console.log'
 with log.open('w') as out:
-  # Use Fabric's official server launcher for the extended-height test.
-  # The bare KnotServer path uses an official server jar and cannot apply
-  # the intermediary class tweakers shipped with Fabric API.
-  java=str(root/'toolchain/jdk/bin/java' if (root/'toolchain/jdk/bin/java').exists() else shutil.which('java'))
-  if height_probe:
-   launcher=folder/'fabric-server-launch.jar'
-   if not launcher.exists():
-    urllib.request.urlretrieve('https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.18.5/1.1.2/server/jar',launcher)
-   command=[java,'-Xmx3G','-Djava.awt.headless=true','-jar',str(launcher),'nogui']
-  else:
-   command=[java,'-Xmx3G','-Djava.security.egd=file:/dev/./urandom','-Dfabric.gameJarPath='+str(root/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(root/'test-runtime/launch-classpath.txt').read_text(),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui']
-  p=subprocess.Popen(command,cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
+ # Use Fabric's official server launcher for the extended-height test.
+ # The bare KnotServer path uses an official server jar and cannot apply
+ # the intermediary class tweakers shipped with Fabric API.
+ java=str(root/'toolchain/jdk/bin/java' if (root/'toolchain/jdk/bin/java').exists() else shutil.which('java'))
+ if height_probe:
+  launcher=folder/'fabric-server-launch.jar'
+  if not launcher.exists():
+   urllib.request.urlretrieve('https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.18.5/1.1.2/server/jar',launcher)
+  command=[java,'-Xmx3G','-Djava.awt.headless=true','-jar',str(launcher),'nogui']
+ else:
+  command=[java,'-Xmx3G','-Djava.security.egd=file:/dev/./urandom','-Dfabric.gameJarPath='+str(root/'test-runtime/versions/1.21.1/server-1.21.1.jar'),'-cp',(root/'test-runtime/launch-classpath.txt').read_text(),'net.fabricmc.loader.impl.launch.knot.KnotServer','nogui']
+ p=subprocess.Popen(command,cwd=folder,stdin=subprocess.PIPE,stdout=out,stderr=subprocess.STDOUT,text=True)
  try:
   start=time.monotonic();sent=False;last=0;dump=False;stop_at=None;stop_sent=False;late_checked=False
   while p.poll() is None:
