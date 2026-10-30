@@ -2,7 +2,7 @@ name: Build WWOO 3.0.1 backport
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/expanded-overworld-height]
   workflow_dispatch:
 
 permissions:
