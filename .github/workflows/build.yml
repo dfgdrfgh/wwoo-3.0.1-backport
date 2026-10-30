@@ -53,6 +53,7 @@ jobs:
           python3 tests/ice_preservation.py
           python3 tests/world_height_audit.py
           python3 port/smoke.py test-extended-height height
+          python3 port/smoke.py test-modrinth-2032 modrinth
           python3 tests/pale_garden_spawning.py
           python3 tests/cloud_baseline.py
           python3 tests/cloud_baseline_runtime.py
